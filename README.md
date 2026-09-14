@@ -91,16 +91,18 @@ python -m app.evaluation
 
 ## Model configuration
 
-The default `.env.example` uses `AI_MODE=replay` and needs no key. For live mode, set:
+The copied backend environment is ready to run as-is. `AI_MODE=replay` exercises the complete seeded workflow without calling an LLM or requiring an API key.
+
+To use Gemini instead, edit `backend/.env`: change `AI_MODE` to `live`, then add these three lines:
 
 ```text
 AI_MODE=live
-LLM_PROVIDER=gemini        # or openai / anthropic
-LLM_MODEL=<provider model available to you>
-GEMINI_API_KEY=<key>       # or the matching provider key
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-3.8-flash
+GEMINI_API_KEY=replace-with-your-gemini-api-key
 ```
 
-If exactly one provider key is present, `LLM_PROVIDER` may be omitted. The application refuses ambiguous or incomplete live configuration.
+The model is a stable Gemini API model, but availability and rate limits depend on the key. OpenAI and Anthropic remain supported by using their provider name, model name, and matching key variable. The application refuses incomplete live configuration.
 
 ## Project map
 

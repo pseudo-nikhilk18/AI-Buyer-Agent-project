@@ -1,4 +1,4 @@
-import { formatLabel, formatQuantity } from "../lib/format";
+import { formatLabel } from "../lib/format";
 import { Status } from "./Status";
 
 const STEP_LABELS = {
@@ -39,32 +39,6 @@ export function WorkflowTimeline({ run }) {
           The workflow trace begins when the investigation runs.
         </div>
       )}
-
-      {run?.action ? (
-        <div className="outcome-strip">
-          <div>
-            <span>Action</span>
-            <strong>{formatLabel(run.action.status)}</strong>
-            <p>
-              {run.action.purchase_order_id
-                ? `Purchase order ${run.action.purchase_order_id}`
-                : "No purchase order was created."}
-            </p>
-          </div>
-          <div>
-            <span>Requested</span>
-            <strong>{formatQuantity(run.action.requested_quantity)} units</strong>
-            <p>Reported: {formatQuantity(run.action.reported_quantity)} units</p>
-          </div>
-          <div>
-            <span>Read-back validation</span>
-            <strong>
-              <Status value={run.validation?.status ?? "not_required"} />
-            </strong>
-            <p>{run.validation?.detail ?? "No validation was required."}</p>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

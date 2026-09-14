@@ -16,6 +16,7 @@ This file applies to the whole repository. It records the working standards for 
 - Derive recommendations from the problem and evidence. Do not mirror a technology or idea merely because the project owner mentioned prior experience with it.
 - Lead updates with outcomes. Avoid bloated status reports or documentation.
 - Match communication to an experienced technical collaborator. Do not repeat established context, re-explain basics, or pad responses; recap only when materially useful or requested.
+- Delegate clearly independent work in parallel when it materially shortens delivery; keep integration, decisions, and final verification with the primary agent.
 - Do not select a service that requires paid credentials without explicit approval.
 - Never expose secrets or commit credentials.
 

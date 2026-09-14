@@ -5,7 +5,7 @@ import { CaseQueue } from "./components/CaseQueue";
 import { EvidenceLedger } from "./components/EvidenceLedger";
 import { InventoryProjection } from "./components/InventoryProjection";
 import { PolicyChecks } from "./components/PolicyChecks";
-import { ReviewPanel } from "./components/ReviewPanel";
+import { RunOutcome } from "./components/RunOutcome";
 import { Status } from "./components/Status";
 import { WorkflowTimeline } from "./components/WorkflowTimeline";
 import { formatCurrency, formatDate, formatLabel, formatQuantity } from "./lib/format";
@@ -257,9 +257,7 @@ function App() {
                   </dl>
                 </section>
 
-                {isAwaitingReview ? (
-                  <ReviewPanel busy={busy} key={run.id} onReview={handleReview} run={run} />
-                ) : null}
+                {run ? <RunOutcome busy={busy} onReview={handleReview} run={run} /> : null}
 
                 <EvidenceLedger detail={detail} run={run} />
                 <InventoryProjection candidate={run?.selected_candidate} />
