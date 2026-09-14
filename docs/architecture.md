@@ -49,7 +49,8 @@ The LLM investigates and proposes. Deterministic services decide feasibility and
 | Graph checkpoints | PostgreSQL LangGraph checkpointer |
 | Evaluation | Python evaluation runner with deterministic graders |
 | Browser verification | Playwright for critical workflows |
-| Local runtime | Docker Compose |
+| Development runtime | Native Vite and FastAPI processes with local PostgreSQL |
+| Reviewer runtime | Docker Compose |
 | Continuous checks | GitHub Actions, Ruff, ESLint, Prettier |
 
 Exact dependency versions will be pinned during scaffolding. Model names are configuration, not architecture.
@@ -146,9 +147,11 @@ Structured business fields remain relational. Evidence snapshots, provider metad
 - Validate from persisted simulator state rather than the action response.
 - Persist every state transition under one trace ID without storing secrets or hidden model reasoning.
 
-## Docker environment
+## Runtime environments
 
-Docker Compose will run three services:
+During development, the Vite web process and FastAPI process run directly on macOS and connect to a local PostgreSQL service. This keeps feedback loops fast and makes each layer easy to inspect.
+
+For reviewers, Docker Compose will run three services:
 
 - `web`: React/Vite application;
 - `api`: FastAPI, LangGraph, domain services, simulator, and evaluation runner; and

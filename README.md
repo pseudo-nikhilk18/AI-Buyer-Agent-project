@@ -34,7 +34,8 @@ The LLM selects tools, investigates uncertainty, proposes a plan, explains it, a
 | Agent orchestration | LangGraph |
 | LLMs | Configurable Gemini, OpenAI, or Anthropic provider and model |
 | Data | PostgreSQL, SQLAlchemy, Alembic |
-| Local runtime | Docker Compose |
+| Development runtime | Native Vite and FastAPI processes with local PostgreSQL |
+| Reviewer runtime | Docker Compose |
 | Evaluation | Deterministic Python graders with focused Playwright verification |
 
 Model names are configuration rather than hardcoded product decisions. Live mode uses the selected provider; clearly labelled replay mode lets a reviewer inspect captured runs without an API key.
