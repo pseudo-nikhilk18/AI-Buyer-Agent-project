@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Active; the purchasing backend is implemented and evaluated.
+Status: Active; the purchasing workflow and buyer workspace are implemented.
 
 Last updated: 2026-09-14
 

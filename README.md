@@ -6,7 +6,7 @@ The original project brief is in [`AI Buyer Agent project.pdf`](./AI%20Buyer%20A
 
 ## Current status
 
-The purchasing backend is implemented and passes all nine deterministic end-to-end evaluations with zero hard-safety failures. The buyer workspace and reviewer Docker setup are in progress.
+The purchasing workflow and buyer workspace are implemented. All nine deterministic end-to-end evaluations pass with zero hard-safety failures. Reviewer Docker packaging remains.
 
 ## Product
 
@@ -111,7 +111,7 @@ If exactly one provider key is present, `LLM_PROVIDER` may be omitted. The appli
 | [`docs/evaluation.md`](./docs/evaluation.md) | Cases, graders, safety failures, metrics, and reporting. |
 | [`docs/decisions.md`](./docs/decisions.md) | Consequential product and technical decisions with reasoning. |
 | [`AGENTS.md`](./AGENTS.md) | Working standards for contributors and coding agents. |
-| [`frontend/`](./frontend) | React interface, local API configuration, and frontend tooling. |
+| [`frontend/`](./frontend) | React buyer workspace for cases, evidence, decisions, policy checks, approval, actions, and validation. |
 | [`backend/`](./backend) | FastAPI API, LangGraph workflow, policy engine, simulator, evaluation runner, seed data, and migrations. |
 
 No undocumented step should be required to run or understand the implemented project.

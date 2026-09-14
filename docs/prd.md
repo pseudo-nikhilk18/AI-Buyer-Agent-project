@@ -1,6 +1,6 @@
 # Product Requirements: AI Purchasing Agent
 
-Status: Finalized product requirements; purchasing backend implemented and evaluated.
+Status: Finalized product requirements; purchasing workflow and buyer workspace implemented.
 
 Source: original project brief in `AI Buyer Agent project.pdf`
 
