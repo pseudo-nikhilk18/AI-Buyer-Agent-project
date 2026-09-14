@@ -3,9 +3,19 @@ from app.config import get_settings
 from app.domain.schemas import AuthorizationResult, EvidenceAssessment
 
 
+MAX_INVESTIGATION_ATTEMPTS = 2
+
+
 def route_after_evidence(state: PurchasingState) -> str:
     assessment = EvidenceAssessment.model_validate(state["evidence_assessment"])
-    return "calculate" if assessment.complete else "propose"
+    if assessment.complete:
+        return "calculate"
+    if (
+        assessment.missing_tools
+        and state.get("investigation_attempts", 0) < MAX_INVESTIGATION_ATTEMPTS
+    ):
+        return "replan"
+    return "propose"
 
 
 def route_after_authorization(state: PurchasingState) -> str:

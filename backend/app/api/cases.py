@@ -15,9 +15,11 @@ from app.domain.schemas import (
     BudgetEvidence,
     CapacityEvidence,
     DecisionDraft,
+    DecisionGuardResult,
     EvidenceAssessment,
     ForecastEvidence,
     InventoryEvidence,
+    InvestigationAttempt,
     InvestigationPlan,
     OpenOrdersEvidence,
     OutcomeValidation,
@@ -88,10 +90,13 @@ class RunView(ApiModel):
     model: str | None
     status: str
     decision: DecisionDraft | None
+    raw_ai_proposal: DecisionDraft | None
+    decision_guard: DecisionGuardResult | None
     authorization: AuthorizationResult | None
     proposed_quantity: int | None
     proposed_spend_minor: int | None
     investigation_plan: InvestigationPlan | None
+    investigation_history: list[InvestigationAttempt]
     evidence_assessment: EvidenceAssessment | None
     evidence: list[EvidenceView]
     analysis: PurchasingAnalysis | None
@@ -144,6 +149,8 @@ def build_run_view(session: Session, run: AgentRun) -> RunView:
         model=run.model,
         status=run.status,
         decision=optional_model(DecisionDraft, state.get("decision")),
+        raw_ai_proposal=optional_model(DecisionDraft, state.get("raw_ai_proposal")),
+        decision_guard=optional_model(DecisionGuardResult, state.get("decision_guard")),
         authorization=optional_model(
             AuthorizationResult,
             state.get("authorization") or state.get("preliminary_authorization"),
@@ -153,6 +160,10 @@ def build_run_view(session: Session, run: AgentRun) -> RunView:
         investigation_plan=optional_model(
             InvestigationPlan, state.get("investigation_plan")
         ),
+        investigation_history=[
+            InvestigationAttempt.model_validate(item)
+            for item in state.get("investigation_history", [])
+        ],
         evidence_assessment=optional_model(
             EvidenceAssessment, state.get("evidence_assessment")
         ),

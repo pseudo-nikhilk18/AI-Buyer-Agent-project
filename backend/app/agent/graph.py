@@ -45,7 +45,11 @@ def build_purchasing_graph(checkpointer, provider: ResolvedProvider | None):
     graph.add_conditional_edges(
         "assess_evidence",
         route_after_evidence,
-        {"calculate": "calculate_requirement", "propose": "propose_decision"},
+        {
+            "calculate": "calculate_requirement",
+            "replan": "plan_investigation",
+            "propose": "propose_decision",
+        },
     )
     graph.add_edge("calculate_requirement", "propose_decision")
     graph.add_edge("propose_decision", "validate_plan")

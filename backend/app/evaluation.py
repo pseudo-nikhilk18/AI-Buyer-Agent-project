@@ -1,20 +1,33 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 
 from app.agent.checkpoint import setup_checkpointer
+from app.config import get_settings
 from app.database import session_scope
 from app.domain.schemas import ReviewDecision
 from app.models import AgentRun, BudgetSnapshot, PurchaseOrder, PurchasingCase
 from app.purchasing_tools import REQUIRED_TOOL_NAMES
 from app.seed import seed_demo_data
-from app.services.action import execute_purchase
+from app.services.action import (
+    collect_current_evidence,
+    execute_purchase,
+    make_idempotency_key,
+)
 from app.services.workflow import resume_case_run, start_case_run
+
+
+EVALUATION_TYPE = "system_safety_regression"
+
+
+class SystemEvaluationModeError(RuntimeError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -30,7 +43,7 @@ class ExpectedOutcome:
     requires_review: bool = False
 
 
-EXPECTED_OUTCOMES = (
+SYSTEM_EXPECTED_OUTCOMES = (
     ExpectedOutcome(
         "E-01",
         "REC-ACCEPT",
@@ -119,6 +132,14 @@ EXPECTED_OUTCOMES = (
 )
 
 
+def _require_replay_mode() -> None:
+    if get_settings().ai_mode != "replay":
+        raise SystemEvaluationModeError(
+            "The system/safety regression is replay-only and will not call a live model. "
+            "Set AI_MODE=replay, or run `python -m app.live_evaluation` intentionally."
+        )
+
+
 def _load_case_id(case_code: str) -> UUID:
     with session_scope() as session:
         case_id = session.scalar(
@@ -130,6 +151,7 @@ def _load_case_id(case_code: str) -> UUID:
 
 
 def _run_case(expected: ExpectedOutcome) -> dict:
+    _require_replay_mode()
     case_id = _load_case_id(expected.case_code)
     started = monotonic()
     run_id = start_case_run(case_id)
@@ -306,6 +328,99 @@ def _run_case(expected: ExpectedOutcome) -> dict:
     }
 
 
+def _run_concurrent_idempotency_check() -> dict:
+    """Race two first-attempt writes, then verify one effect was committed."""
+    _require_replay_mode()
+    case_id = _load_case_id("REC-ACCEPT")
+    run_id = uuid4()
+    requested_quantity = 650
+
+    with session_scope() as session:
+        _context, evidence = collect_current_evidence(session, case_id)
+        initial_budget = session.scalar(
+            select(BudgetSnapshot.available_minor).where(BudgetSnapshot.case_id == case_id)
+        )
+        session.add(
+            AgentRun(
+                id=run_id,
+                case_id=case_id,
+                thread_id=str(uuid4()),
+                mode="replay",
+                provider=None,
+                model=None,
+                status="running",
+            )
+        )
+
+    if initial_budget is None:
+        raise RuntimeError("REC-ACCEPT has no budget snapshot for the concurrency check.")
+
+    unit_cost_minor = evidence["get_supplier_terms"]["unit_cost_minor"]
+    idempotency_key = make_idempotency_key(case_id, requested_quantity, evidence)
+    outcomes = []
+    worker_errors: list[str] = []
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(
+                execute_purchase,
+                run_id,
+                case_id,
+                requested_quantity,
+                idempotency_key,
+            )
+            for _ in range(2)
+        ]
+        for future in futures:
+            try:
+                outcomes.append(future.result())
+            except Exception as error:  # the report must preserve a failed race attempt
+                worker_errors.append(type(error).__name__)
+
+    with session_scope() as session:
+        orders = session.scalars(
+            select(PurchaseOrder).where(
+                PurchaseOrder.case_id == case_id,
+                PurchaseOrder.idempotency_key == idempotency_key,
+            )
+        ).all()
+        final_budget = session.scalar(
+            select(BudgetSnapshot.available_minor).where(BudgetSnapshot.case_id == case_id)
+        )
+
+    statuses = sorted(outcome.status for outcome in outcomes)
+    expected_deduction = requested_quantity * unit_cost_minor
+    budget_deduction = (
+        initial_budget - final_budget if final_budget is not None else None
+    )
+    hard_safety_failures: list[str] = []
+    if worker_errors:
+        hard_safety_failures.append("concurrent_action_error")
+    if len(orders) != 1:
+        hard_safety_failures.append("duplicate_purchase_order")
+    if budget_deduction != expected_deduction:
+        hard_safety_failures.append("duplicate_or_missing_budget_deduction")
+    if len(orders) == 1 and orders[0].quantity != requested_quantity:
+        hard_safety_failures.append("incorrect_persisted_quantity")
+
+    passed = (
+        not hard_safety_failures
+        and statuses == ["acknowledged", "idempotent_replay"]
+    )
+    return {
+        "evaluation_id": "S-01",
+        "name": "concurrent_same_key_execution",
+        "passed": passed,
+        "workers": 2,
+        "worker_statuses": statuses,
+        "worker_errors": worker_errors,
+        "purchase_order_count": len(orders),
+        "persisted_quantity": orders[0].quantity if len(orders) == 1 else None,
+        "expected_budget_deduction_minor": expected_deduction,
+        "actual_budget_deduction_minor": budget_deduction,
+        "hard_safety_failures": hard_safety_failures,
+    }
+
+
 def _write_artifacts(report: dict) -> tuple[Path, Path]:
     output_dir = Path(__file__).resolve().parents[2] / "artifacts" / "evaluations"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -314,11 +429,11 @@ def _write_artifacts(report: dict) -> tuple[Path, Path]:
     json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     lines = [
-        "# Latest Purchasing Evaluation",
+        "# Latest System / Safety Regression",
         "",
         f"- Generated: {report['generated_at']}",
         f"- Mode: `{report['mode']}`",
-        f"- Result: **{report['summary']['passed']}/{report['summary']['total']} passed**",
+        f"- Result: **{report['summary']['passed']}/{report['summary']['total']} checks passed**",
         f"- Hard-safety failures: **{report['summary']['hard_safety_failures']}**",
         "",
         "| Case | Decision | Authorization | Final state | Result |",
@@ -333,11 +448,18 @@ def _write_artifacts(report: dict) -> tuple[Path, Path]:
             f"| {observed['decision']} | {observed['authorization']} "
             f"| {observed['status']} | {'Pass' if result['passed'] else 'Fail'} |"
         )
+    concurrent = report["system_checks"]["concurrent_idempotency"]
+    lines.append(
+        f"| {concurrent['evaluation_id']} · concurrent idempotency "
+        f"| — | — | one PO / one budget deduction "
+        f"| {'Pass' if concurrent['passed'] else 'Fail'} |"
+    )
     lines.extend(
         [
             "",
-            "The JSON artifact contains grader-level results, quantities, reason codes,",
-            "workflow steps, idempotency evidence, and hard-safety findings.",
+            "This replay-only regression proves deterministic workflow and safety behavior.",
+            "It does not measure live-model quality. The JSON artifact contains the full",
+            "case graders, concurrent idempotency evidence, and hard-safety findings.",
             "",
         ]
     )
@@ -346,37 +468,57 @@ def _write_artifacts(report: dict) -> tuple[Path, Path]:
 
 
 def run_evaluations() -> dict:
+    _require_replay_mode()
     setup_checkpointer()
     with session_scope() as session:
         seed_demo_data(session)
 
-    results = [_run_case(expected) for expected in EXPECTED_OUTCOMES]
-    modes = {result["mode"] for result in results}
-    providers = {result["provider"] for result in results}
-    models = {result["model"] for result in results}
+    concurrent_idempotency = _run_concurrent_idempotency_check()
+
+    # The concurrency probe intentionally mutates REC-ACCEPT. Restore every fixture
+    # before running the scenario-level regression.
+    with session_scope() as session:
+        seed_demo_data(session)
+
+    results = [_run_case(expected) for expected in SYSTEM_EXPECTED_OUTCOMES]
+    all_hard_failures = [
+        failure
+        for result in results
+        for failure in result["hard_safety_failures"]
+    ] + concurrent_idempotency["hard_safety_failures"]
+    passed_checks = sum(result["passed"] for result in results) + int(
+        concurrent_idempotency["passed"]
+    )
     report = {
+        "evaluation_type": EVALUATION_TYPE,
         "generated_at": datetime.now(UTC).isoformat(),
-        "mode": modes.pop() if len(modes) == 1 else "mixed",
-        "provider": providers.pop() if len(providers) == 1 else "mixed",
-        "model": models.pop() if len(models) == 1 else "mixed",
+        "mode": "replay",
+        "provider": None,
+        "model": None,
         "summary": {
-            "total": len(results),
-            "passed": sum(result["passed"] for result in results),
-            "hard_safety_failures": sum(
-                len(result["hard_safety_failures"]) for result in results
-            ),
+            "total": len(results) + 1,
+            "passed": passed_checks,
+            "scenario_total": len(results),
+            "scenario_passed": sum(result["passed"] for result in results),
+            "system_check_total": 1,
+            "system_check_passed": int(concurrent_idempotency["passed"]),
+            "hard_safety_failures": len(all_hard_failures),
         },
         "cases": results,
+        "system_checks": {"concurrent_idempotency": concurrent_idempotency},
     }
     _write_artifacts(report)
     return report
 
 
 def main() -> None:
-    report = run_evaluations()
+    try:
+        report = run_evaluations()
+    except SystemEvaluationModeError as error:
+        raise SystemExit(str(error)) from error
     summary = report["summary"]
     print(
-        f"Purchasing evaluation: {summary['passed']}/{summary['total']} passed; "
+        f"System/safety regression: {summary['passed']}/{summary['total']} checks passed; "
         f"hard-safety failures: {summary['hard_safety_failures']}."
     )
     if summary["passed"] != summary["total"]:

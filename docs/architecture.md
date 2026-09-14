@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Active; the purchasing workflow and buyer workspace are implemented.
+Status: Active; purchase recommendation review and its evaluation paths are implemented.
 
 Last updated: 2026-09-14
 
@@ -15,7 +15,10 @@ flowchart LR
     Graph --> Tools[Typed evidence tools]
     Tools --> DB[(PostgreSQL)]
     Graph --> Policy[Deterministic purchasing policy]
-    Graph --> Auth[Authorization gate]
+    LLM --> Proposal[Raw model proposal]
+    Policy --> Guard[Loss-bounded guard]
+    Proposal --> Guard
+    Guard --> Auth[Authorization gate]
     Auth -->|Within authority| Action[PO action service]
     Auth -->|Review required| Buyer
     Action --> Simulator[Purchasing simulator]
@@ -25,7 +28,7 @@ flowchart LR
     Validator -->|Mismatch| Escalate[Escalation]
 ```
 
-The LLM investigates and proposes. Deterministic code controls calculations, hard constraints, authority, database mutations, and success validation.
+The LLM investigates and proposes without seeing fixture labels. Deterministic code controls calculations, hard constraints, proposal validation, authority, database mutations, and success validation.
 
 ## Technology
 
@@ -37,7 +40,7 @@ The LLM investigates and proposes. Deterministic code controls calculations, har
 | LLM adapters | Gemini, OpenAI, Anthropic |
 | Persistence | PostgreSQL, SQLAlchemy, Alembic |
 | Graph checkpoints | PostgreSQL LangGraph checkpointer |
-| Evaluation | Python runner with deterministic graders |
+| Evaluation | Blinded live-agent grader and deterministic system/safety grader |
 | Local runtime | Separate Vite and FastAPI processes with local PostgreSQL |
 | Reviewer runtime | Docker Compose |
 
@@ -49,10 +52,14 @@ Dependencies are pinned. Provider model names remain environment configuration.
 plan investigation
   -> gather typed evidence
   -> check completeness and freshness
-       -> incomplete: investigate and block
+       -> missing: replan once for the exact gaps
+       -> still incomplete or stale: investigate and block
        -> complete: calculate time-phased candidates
-  -> propose accept / modify / reject / investigate
-  -> validate proposal against deterministic policy
+  -> model proposes accept / modify / reject / investigate
+  -> preserve the raw proposal
+  -> validate it against the private deterministic policy outcome
+       -> mismatch: replace with safe investigate and block
+       -> match: continue with the guarded decision
   -> authorize
        -> within authority: execute
        -> above authority: pause for buyer review
@@ -65,7 +72,7 @@ plan investigation
        -> mismatch: escalate
 ```
 
-LangGraph owns transitions, PostgreSQL checkpoints, pause/resume, and bounded replanning. Purchasing formulas remain ordinary Python functions.
+LangGraph owns transitions, a bounded evidence-gap loop, PostgreSQL checkpoints, pause/resume, and action-time replanning. Purchasing formulas remain ordinary Python functions.
 
 ## Backend structure
 
@@ -85,10 +92,11 @@ backend/app/
 ├── models.py             relational persistence model
 ├── purchasing_tools.py   read-only business evidence tools
 ├── seed.py               deterministic review and scenario cases
-└── evaluation.py         complete-case graders and reports
+├── evaluation.py         replay system/safety regression
+└── live_evaluation.py    blinded live-model quality grader
 ```
 
-There is one agentic workflow, not multiple LLM agents. Planning and proposal use the configured model in live mode. Other nodes are deterministic control points because separate LLMs would not improve those responsibilities.
+There is one modular purchasing agent, not a collection of agents pretending that deterministic jobs need model judgment. Planning and proposal use the configured model in live mode. Evidence, calculation, guarding, authorization, execution, and validation remain separate deterministic control points.
 
 ## API
 
@@ -99,7 +107,7 @@ There is one agentic workflow, not multiple LLM agents. Planning and proposal us
 - `GET /api/runs/{run_id}` — retrieve a run.
 - `POST /api/runs/{run_id}/review` — approve or reject a paused exact action.
 
-The API exposes no provider keys, prompts, database errors, or hidden model reasoning.
+The API exposes the model's structured proposal, guard result, investigation plan, evidence, and outcome. It exposes no provider keys, prompts, database errors, fixture labels, chain-of-thought, or other hidden reasoning.
 
 ## Data and consistency
 
@@ -117,7 +125,7 @@ PostgreSQL stores cases, products, nodes, suppliers, reusable supplier terms, pe
 ## Provider modes
 
 - `AI_MODE=live` requires `LLM_PROVIDER`, `LLM_MODEL`, and the matching provider key. If exactly one key exists, its provider can be inferred.
-- `AI_MODE=replay` runs the same graph with deterministic planning and proposal against seeded evidence; it needs no key and is labelled as non-live evaluation.
+- `AI_MODE=replay` runs the same graph with deterministic planning and proposal against seeded evidence; it needs no key and is labelled only as system/safety regression.
 - A paused live run resumes with its original provider and model rather than silently switching configuration.
 
 ## Runtime

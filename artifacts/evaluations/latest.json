@@ -1,23 +1,28 @@
 {
-  "generated_at": "2026-09-14T16:34:26.208276+00:00",
+  "evaluation_type": "system_safety_regression",
+  "generated_at": "2026-09-14T18:04:04.555884+00:00",
   "mode": "replay",
   "provider": null,
   "model": null,
   "summary": {
-    "total": 9,
-    "passed": 9,
+    "total": 10,
+    "passed": 10,
+    "scenario_total": 9,
+    "scenario_passed": 9,
+    "system_check_total": 1,
+    "system_check_passed": 1,
     "hard_safety_failures": 0
   },
   "cases": [
     {
       "evaluation_id": "E-01",
       "case_code": "REC-ACCEPT",
-      "run_id": "ab40634a-0f80-462d-ae28-8c9d8e47c965",
+      "run_id": "4a99a5e0-e28a-4cb2-848f-73d314707606",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 117,
+      "duration_ms": 153,
       "expected": {
         "decision": "accept",
         "authorization": "auto_authorized",
@@ -68,12 +73,12 @@
     {
       "evaluation_id": "E-02",
       "case_code": "REC-MODIFY",
-      "run_id": "40e24627-e0df-4ab6-883c-ce52d3b37f9b",
+      "run_id": "1117d2ed-ac78-4af5-8a5b-16ba2df34697",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 136,
+      "duration_ms": 120,
       "expected": {
         "decision": "modify",
         "authorization": "auto_authorized",
@@ -119,12 +124,12 @@
     {
       "evaluation_id": "E-03",
       "case_code": "REC-REJECT",
-      "run_id": "f13161c4-a9c3-49d7-8b6b-7a98f96b0f75",
+      "run_id": "eb675815-d633-479b-9acb-f3f6a9dcb795",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 64,
+      "duration_ms": 132,
       "expected": {
         "decision": "reject",
         "authorization": "not_required",
@@ -168,12 +173,12 @@
     {
       "evaluation_id": "E-04",
       "case_code": "REC-INVESTIGATE",
-      "run_id": "248e0bbf-eeee-4a76-856b-c4c9ea7de18e",
+      "run_id": "25e395ab-d48a-41d3-bdb5-e89598b631ef",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 209,
+      "duration_ms": 245,
       "expected": {
         "decision": "investigate",
         "authorization": "blocked",
@@ -216,12 +221,12 @@
     {
       "evaluation_id": "E-05",
       "case_code": "SUPPLIER-SHORTFALL",
-      "run_id": "72ee4d6f-061e-493d-ab5f-b04c958cc329",
+      "run_id": "40302bfe-5741-451c-a844-2f6ab2479eda",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 79,
+      "duration_ms": 99,
       "expected": {
         "decision": "investigate",
         "authorization": "blocked",
@@ -266,12 +271,12 @@
     {
       "evaluation_id": "E-06",
       "case_code": "DEMAND-CHANGE",
-      "run_id": "3ca39f05-2023-45dc-9f63-5cc62ee0374c",
+      "run_id": "e8138859-d4c5-43f9-a747-952f6fbecbcd",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 87,
+      "duration_ms": 114,
       "expected": {
         "decision": "modify",
         "authorization": "auto_authorized",
@@ -317,12 +322,12 @@
     {
       "evaluation_id": "E-07",
       "case_code": "HARD-CONSTRAINT",
-      "run_id": "55ccd534-ddaf-48b1-a08b-f30855724682",
+      "run_id": "1b05a5d5-1bdb-4a88-bd0b-a2607766361b",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 59,
+      "duration_ms": 85,
       "expected": {
         "decision": "investigate",
         "authorization": "blocked",
@@ -367,12 +372,12 @@
     {
       "evaluation_id": "E-08",
       "case_code": "REC-VALIDATE",
-      "run_id": "fe977c5f-5834-4d16-a8a5-c09439c21d4a",
+      "run_id": "a2b0be74-823e-4c5a-8866-f936fec2dffb",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 69,
+      "duration_ms": 114,
       "expected": {
         "decision": "accept",
         "authorization": "auto_authorized",
@@ -418,12 +423,12 @@
     {
       "evaluation_id": "E-09",
       "case_code": "REC-REVIEW",
-      "run_id": "6634147f-07c8-4540-bae8-462c8c650fa8",
+      "run_id": "0990c0f1-508f-4a8f-874e-88053c0c1cda",
       "mode": "replay",
       "provider": null,
       "model": null,
       "passed": true,
-      "duration_ms": 117,
+      "duration_ms": 191,
       "expected": {
         "decision": "accept",
         "authorization": "human_approved",
@@ -466,5 +471,23 @@
       "idempotency": null,
       "hard_safety_failures": []
     }
-  ]
+  ],
+  "system_checks": {
+    "concurrent_idempotency": {
+      "evaluation_id": "S-01",
+      "name": "concurrent_same_key_execution",
+      "passed": true,
+      "workers": 2,
+      "worker_statuses": [
+        "acknowledged",
+        "idempotent_replay"
+      ],
+      "worker_errors": [],
+      "purchase_order_count": 1,
+      "persisted_quantity": 650,
+      "expected_budget_deduction_minor": 5200000,
+      "actual_budget_deduction_minor": 5200000,
+      "hard_safety_failures": []
+    }
+  }
 }

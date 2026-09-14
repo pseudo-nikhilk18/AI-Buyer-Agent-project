@@ -52,11 +52,13 @@ A feature is done when its evaluation proves the intended decision, evidence gat
 ## Engineering guardrails
 
 - Treat LLM output as untrusted input. Use typed schemas and deterministic business-rule checks.
+- Keep evaluation answers out of model inputs. Record the raw live-model proposal separately from the guarded business outcome, and never present replay results as AI quality.
 - Target zero preventable loss introduced by AI. Automatic action must be at least as safe as the validated baseline under conservative evidence; uncertainty reduces authority rather than increasing risk.
 - Do not assume blanket human approval or blanket autonomy. Execute purchasing mutations only under the agreed authorization policy, and route uncertain or high-risk actions to human review.
 - After an action, read back the resulting state and validate it independently. Never report success from an API acknowledgement alone.
 - Keep domain logic separate from UI, LLM prompts, and data access so it is independently verifiable.
 - Frontend anti-slop: establish a product-specific visual direction before coding; use realistic purchasing content, intentional hierarchy, responsive behavior, accessible interactions, and screenshot-based critique. Avoid generic dashboard templates and decorative effects without purpose.
+- Explain the business actors and one end-to-end workflow before exposing demo fixtures; test scenarios must not look like an unexplained production work queue.
 - Backend anti-slop: define contracts and failure modes first; validate at runtime; use typed errors, idempotent writes, structured traces, and evaluation-driven engineering checks. No placeholder logic, fake success states, swallowed errors, or happy-path-only implementations.
 - Run the web app and API directly on macOS against local PostgreSQL during development. Maintain Docker Compose as the reviewer setup and validate it outside the routine local workflow.
 - Use a standard Python `.venv` and `requirements.txt` for backend dependencies. Discuss alternate package managers or additional lint and test tools before adding them.

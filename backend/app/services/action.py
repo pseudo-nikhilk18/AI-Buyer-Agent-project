@@ -198,7 +198,7 @@ def execute_purchase(
             (
                 candidate
                 for candidate in analysis.candidates
-                if candidate.id == analysis.expected_candidate_id
+                if candidate.id == analysis.policy_candidate_id
             ),
             None,
         )

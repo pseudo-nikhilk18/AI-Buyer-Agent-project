@@ -195,23 +195,23 @@ def analyze_purchase(
     )
 
     if calculated_order == 0:
-        expected_decision = "reject"
-        expected_candidate_id = "no_action"
+        policy_decision = "reject"
+        policy_candidate_id = "no_action"
         reason_codes = ["inventory_coverage_sufficient"]
         selected = no_action
     elif not calculated.feasible:
-        expected_decision = "investigate"
-        expected_candidate_id = None
+        policy_decision = "investigate"
+        policy_candidate_id = None
         reason_codes = ["calculated_order_blocked", *calculated.violations]
         selected = calculated
     elif context.recommended_quantity == calculated_order and original.feasible:
-        expected_decision = "accept"
-        expected_candidate_id = "original_recommendation"
+        policy_decision = "accept"
+        policy_candidate_id = "original_recommendation"
         reason_codes = ["recommendation_matches_safe_quantity"]
         selected = original
     else:
-        expected_decision = "modify"
-        expected_candidate_id = "calculated_order"
+        policy_decision = "modify"
+        policy_candidate_id = "calculated_order"
         reason_codes = ["recommendation_differs_from_safe_quantity"]
         selected = calculated
 
@@ -229,8 +229,8 @@ def analyze_purchase(
         safety_stock_quantity=safety_stock_quantity,
         net_requirement_quantity=net_requirement,
         calculated_order_quantity=calculated_order,
-        expected_decision=expected_decision,
-        expected_candidate_id=expected_candidate_id,
+        policy_decision=policy_decision,
+        policy_candidate_id=policy_candidate_id,
         candidates=[no_action, original, calculated],
         policy_checks=checks,
         reason_codes=reason_codes,

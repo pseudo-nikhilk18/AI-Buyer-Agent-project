@@ -4,17 +4,14 @@ import { getCase, getCases, reviewRun, runCase } from "./api";
 import { CaseQueue } from "./components/CaseQueue";
 import { EvidenceLedger } from "./components/EvidenceLedger";
 import { InventoryProjection } from "./components/InventoryProjection";
+import { InvestigationRecord } from "./components/InvestigationRecord";
 import { PolicyChecks } from "./components/PolicyChecks";
 import { RunOutcome } from "./components/RunOutcome";
 import { Status } from "./components/Status";
+import { SystemOverview } from "./components/SystemOverview";
 import { WorkflowTimeline } from "./components/WorkflowTimeline";
-import { formatCurrency, formatDate, formatLabel, formatQuantity } from "./lib/format";
-
-function decisionQuantity(run) {
-  if (!run) return null;
-  if (run.decision?.decision === "reject") return 0;
-  return run.selected_candidate?.quantity ?? run.proposed_quantity;
-}
+import { formatLabel } from "./lib/format";
+import { getScenarioPresentation } from "./lib/scenarios";
 
 function syncCaseUrl(caseId) {
   const url = new URL(window.location.href);
@@ -115,15 +112,13 @@ function App() {
   }
 
   const run = detail?.latest_run;
-  const selectedQuantity = decisionQuantity(run);
-  const quantityDifference =
-    selectedQuantity === null || !detail ? null : selectedQuantity - detail.recommended_quantity;
+  const scenario = detail ? getScenarioPresentation(detail) : null;
   const isAwaitingReview = run?.status === "awaiting_review";
 
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <a className="skip-link" href="#main-content">
-        Skip to case decision
+        Skip to buyer-agent decision
       </a>
       <header className="app-header">
         <div className="app-header__inner">
@@ -135,13 +130,13 @@ function App() {
         </div>
       </header>
       <p className="sr-only" aria-live="polite">
-        {busy ? "Updating purchasing case…" : error}
+        {busy ? "Updating the selected demo scenario…" : error}
       </p>
 
       {pageState === "loading" && cases.length === 0 ? (
         <main className="workspace-state" id="main-content" aria-live="polite">
           <span className="loading-rule" aria-hidden="true" />
-          <h1>Loading Purchasing Cases…</h1>
+          <h1>Loading Demo Scenarios…</h1>
           <p>Connecting to the decision API and current evidence.</p>
         </main>
       ) : null}
@@ -162,126 +157,126 @@ function App() {
 
       {pageState === "ready" && cases.length === 0 ? (
         <main className="workspace-state" id="main-content">
-          <h1>No Purchasing Cases Are Available</h1>
+          <h1>No Demo Scenarios Are Available</h1>
           <p>Seed the backend data, then reload this workspace.</p>
         </main>
       ) : null}
 
       {cases.length > 0 ? (
-        <main className="workspace" id="main-content">
-          <CaseQueue busy={busy} cases={cases} onSelect={handleSelect} selectedId={selectedId} />
+        <main id="main-content">
+          <SystemOverview />
+          <div className="workspace">
+            <CaseQueue busy={busy} cases={cases} onSelect={handleSelect} selectedId={selectedId} />
 
-          <div className="decision-sheet" aria-busy={pageState === "loading" || busy}>
-            {detail ? (
-              <>
-                <section className="case-heading">
-                  <div>
-                    <p className="case-heading__code">{detail.code}</p>
-                    <h1>{detail.title}</h1>
-                    <p className="case-heading__context">
-                      {detail.product_name} · {detail.sku} · {detail.node_name}
-                    </p>
-                  </div>
-                  <div className="case-heading__action">
-                    <Status value={run?.status ?? detail.status} />
-                    <button
-                      className="button button--primary"
-                      disabled={busy || isAwaitingReview}
-                      onClick={handleRun}
-                      type="button"
-                    >
-                      {busy
-                        ? "Workflow Running…"
-                        : run
-                          ? "Run with Current Data"
-                          : "Run Investigation"}
-                    </button>
-                  </div>
-                </section>
+            <div className="decision-sheet" aria-busy={pageState === "loading" || busy}>
+              {detail ? (
+                <>
+                  <section className="case-heading">
+                    <div className="case-heading__title">
+                      <p className="case-heading__label">Selected Demo Scenario</p>
+                      <h2>{scenario.label}</h2>
+                      <p className="case-heading__context">
+                        {detail.product_name} · {detail.node_name}
+                      </p>
+                      <p className="case-heading__id">
+                        Demo ID {detail.code} · SKU {detail.sku}
+                      </p>
+                    </div>
+                    <div className="case-heading__action">
+                      <Status value={run?.status ?? detail.status} />
+                      <button
+                        className="button button--primary"
+                        disabled={busy || isAwaitingReview}
+                        onClick={handleRun}
+                        type="button"
+                      >
+                        {busy
+                          ? "Buyer Agent Running…"
+                          : isAwaitingReview
+                            ? "Buyer Decision Required"
+                            : run
+                              ? "Run Again with Current Evidence"
+                              : "Run Buyer Agent"}
+                      </button>
+                    </div>
+                    <dl className="scenario-brief">
+                      <div>
+                        <dt>What Changed</dt>
+                        <dd>{scenario.changed}</dd>
+                      </div>
+                      <div>
+                        <dt>What the Agent Must Protect</dt>
+                        <dd>{scenario.protects}</dd>
+                      </div>
+                    </dl>
+                  </section>
 
-                {error ? (
-                  <div className="error-banner" role="alert">
-                    {error}
-                  </div>
-                ) : null}
+                  {error ? (
+                    <div className="error-banner" role="alert">
+                      {error}
+                    </div>
+                  ) : null}
 
-                <section className="decision-band" aria-labelledby="decision-heading">
-                  <div className="decision-band__copy">
-                    <h2 id="decision-heading">Current Decision</h2>
-                    <strong>
-                      {run?.decision ? formatLabel(run.decision.decision) : "Not evaluated"}
-                    </strong>
-                    <p>
-                      {run?.decision?.summary ??
-                        "The recommendation has not yet been checked against current evidence and policy."}
-                    </p>
-                  </div>
-                  <div className="quantity-comparison">
-                    <div>
-                      <span>Recommendation</span>
-                      <strong>{formatQuantity(detail.recommended_quantity)}</strong>
-                      <small>units</small>
-                    </div>
-                    <span className="quantity-comparison__divider" aria-hidden="true" />
-                    <div>
-                      <span>Selected quantity</span>
-                      <strong>{formatQuantity(selectedQuantity)}</strong>
-                      <small>
-                        {quantityDifference === null
-                          ? "pending"
-                          : quantityDifference === 0
-                            ? "unchanged"
-                            : `${quantityDifference > 0 ? "+" : ""}${formatQuantity(quantityDifference)} units`}
-                      </small>
-                    </div>
-                  </div>
-                  <dl className="decision-meta">
-                    <div>
-                      <dt>Authorization</dt>
-                      <dd>
-                        {run?.authorization ? (
-                          <Status value={run.authorization.status} />
-                        ) : (
-                          "Pending"
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Proposed spend</dt>
-                      <dd>{formatCurrency(run?.proposed_spend_minor, detail.supplier.currency)}</dd>
-                    </div>
-                    <div>
-                      <dt>Last evaluated</dt>
-                      <dd>{run ? formatDate(run.started_at, true) : "Never"}</dd>
-                    </div>
-                  </dl>
-                </section>
+                  <RunOutcome busy={busy} detail={detail} onReview={handleReview} run={run} />
+                  <InvestigationRecord run={run} />
 
-                {run ? <RunOutcome busy={busy} onReview={handleReview} run={run} /> : null}
-
-                <EvidenceLedger detail={detail} run={run} />
-                <InventoryProjection candidate={run?.selected_candidate} />
-                <PolicyChecks checks={run?.analysis?.policy_checks} />
-                <WorkflowTimeline run={run} />
-              </>
-            ) : error ? (
-              <div className="sheet-error" role="alert">
-                <h1>This Purchasing Case Could Not Load</h1>
-                <p>{error}</p>
-                <button
-                  className="button button--primary"
-                  onClick={() => handleSelect(selectedId, true)}
-                  type="button"
-                >
-                  Try This Case Again
-                </button>
-              </div>
-            ) : (
-              <div className="sheet-loading" aria-live="polite">
-                <span className="loading-rule" aria-hidden="true" />
-                Loading Case Evidence…
-              </div>
-            )}
+                  <section className="supporting-proof" aria-labelledby="supporting-proof-heading">
+                    <div className="supporting-proof__heading">
+                      <h2 id="supporting-proof-heading">Supporting Evidence</h2>
+                      <p>
+                        Open these records to inspect how the agent reached and verified its
+                        decision.
+                      </p>
+                    </div>
+                    <details>
+                      <summary>
+                        <span>Evidence and Inventory Projection</span>
+                        <small>Source freshness, demand, supply, and stock path</small>
+                      </summary>
+                      <div className="supporting-proof__content">
+                        <EvidenceLedger detail={detail} run={run} />
+                        <InventoryProjection candidate={run?.selected_candidate} />
+                      </div>
+                    </details>
+                    <details>
+                      <summary>
+                        <span>Safety Policy Checks</span>
+                        <small>Hard constraints and authorization boundaries</small>
+                      </summary>
+                      <div className="supporting-proof__content">
+                        <PolicyChecks checks={run?.analysis?.policy_checks} />
+                      </div>
+                    </details>
+                    <details>
+                      <summary>
+                        <span>Technical Workflow Trace</span>
+                        <small>The nodes completed during this agent run</small>
+                      </summary>
+                      <div className="supporting-proof__content">
+                        <WorkflowTimeline run={run} />
+                      </div>
+                    </details>
+                  </section>
+                </>
+              ) : error ? (
+                <div className="sheet-error" role="alert">
+                  <h2>This Purchasing Scenario Could Not Load</h2>
+                  <p>{error}</p>
+                  <button
+                    className="button button--primary"
+                    onClick={() => handleSelect(selectedId, true)}
+                    type="button"
+                  >
+                    Try This Scenario Again
+                  </button>
+                </div>
+              ) : (
+                <div className="sheet-loading" aria-live="polite">
+                  <span className="loading-rule" aria-hidden="true" />
+                  Loading Scenario Evidence…
+                </div>
+              )}
+            </div>
           </div>
         </main>
       ) : null}

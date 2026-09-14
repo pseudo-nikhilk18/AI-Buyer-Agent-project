@@ -1,8 +1,8 @@
-# Latest Purchasing Evaluation
+# Latest System / Safety Regression
 
-- Generated: 2026-09-14T16:34:26.208276+00:00
+- Generated: 2026-09-14T18:04:04.555884+00:00
 - Mode: `replay`
-- Result: **9/9 passed**
+- Result: **10/10 checks passed**
 - Hard-safety failures: **0**
 
 | Case | Decision | Authorization | Final state | Result |
@@ -16,6 +16,8 @@
 | E-07 · HARD-CONSTRAINT | investigate | blocked | blocked | Pass |
 | E-08 · REC-VALIDATE | accept | auto_authorized | escalated | Pass |
 | E-09 · REC-REVIEW | accept | human_approved | completed | Pass |
+| S-01 · concurrent idempotency | — | — | one PO / one budget deduction | Pass |
 
-The JSON artifact contains grader-level results, quantities, reason codes,
-workflow steps, idempotency evidence, and hard-safety findings.
+This replay-only regression proves deterministic workflow and safety behavior.
+It does not measure live-model quality. The JSON artifact contains the full
+case graders, concurrent idempotency evidence, and hard-safety findings.

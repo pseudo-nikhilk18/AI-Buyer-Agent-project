@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class StrictModel(BaseModel):
@@ -132,36 +132,101 @@ class PurchasingAnalysis(StrictModel):
     safety_stock_quantity: int = Field(ge=0)
     net_requirement_quantity: int = Field(ge=0)
     calculated_order_quantity: int = Field(ge=0)
-    expected_decision: Literal["accept", "modify", "reject", "investigate"]
-    expected_candidate_id: str | None
+    policy_decision: Literal["accept", "modify", "reject", "investigate"] = Field(
+        validation_alias=AliasChoices("policy_decision", "expected_decision")
+    )
+    policy_candidate_id: str | None = Field(
+        validation_alias=AliasChoices("policy_candidate_id", "expected_candidate_id")
+    )
     candidates: list[PurchaseCandidate]
     policy_checks: list[PolicyCheckResult]
     reason_codes: list[str]
 
 
+EvidenceToolName = Literal[
+    "get_inventory",
+    "get_demand_forecast",
+    "get_open_purchase_orders",
+    "get_supplier_terms",
+    "get_budget",
+    "get_storage_capacity",
+]
+
+
+class InvestigationToolRequest(StrictModel):
+    tool_name: EvidenceToolName
+    purpose: str = Field(min_length=1, max_length=240)
+    questions: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        min_length=1,
+        max_length=4,
+    )
+
+
 class InvestigationPlan(StrictModel):
-    tool_names: list[
-        Literal[
-            "get_inventory",
-            "get_demand_forecast",
-            "get_open_purchase_orders",
-            "get_supplier_terms",
-            "get_budget",
-            "get_storage_capacity",
-        ]
-    ]
+    tool_requests: list[InvestigationToolRequest] = Field(max_length=6)
     summary: str = Field(min_length=1, max_length=400)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_tool_names(cls, value):
+        if not isinstance(value, dict) or "tool_requests" in value:
+            return value
+        legacy_names = value.get("tool_names")
+        if not isinstance(legacy_names, list):
+            return value
+        migrated = {key: item for key, item in value.items() if key != "tool_names"}
+        migrated["tool_requests"] = [
+            {
+                "tool_name": tool_name,
+                "purpose": "Retrieve evidence selected by the earlier investigation plan.",
+                "questions": ["What current evidence does this source provide?"],
+            }
+            for tool_name in legacy_names
+        ]
+        return migrated
+
+    @model_validator(mode="after")
+    def reject_duplicate_tools(self):
+        if len(self.tool_names) != len(set(self.tool_names)):
+            raise ValueError("An investigation plan cannot repeat a tool.")
+        return self
+
+    @property
+    def tool_names(self) -> list[EvidenceToolName]:
+        return [request.tool_name for request in self.tool_requests]
+
+
+class InvestigationAttempt(StrictModel):
+    attempt: int = Field(ge=1, le=2)
+    missing_sources_before: list[EvidenceToolName]
+    plan: InvestigationPlan
 
 
 class DecisionDraft(StrictModel):
     decision: Literal["accept", "modify", "reject", "investigate"]
     candidate_id: str | None
-    reason_codes: list[str]
+    reason_codes: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(
+        min_length=1,
+        max_length=12,
+    )
     summary: str = Field(min_length=1, max_length=800)
 
 
+class DecisionGuardResult(StrictModel):
+    status: Literal["passed", "blocked"]
+    reason_codes: list[str]
+    detail: str = Field(min_length=1, max_length=800)
+
+
 class AuthorizationResult(StrictModel):
-    status: Literal["auto_authorized", "human_review", "human_approved", "rejected", "blocked", "not_required"]
+    status: Literal[
+        "auto_authorized",
+        "human_review",
+        "human_approved",
+        "rejected",
+        "blocked",
+        "not_required",
+    ]
     reason_codes: list[str]
     detail: str
 
@@ -172,7 +237,12 @@ class ReviewDecision(StrictModel):
 
 
 class ActionResult(StrictModel):
-    status: Literal["acknowledged", "idempotent_replay", "replan_required", "not_executed"]
+    status: Literal[
+        "acknowledged",
+        "idempotent_replay",
+        "replan_required",
+        "not_executed",
+    ]
     action_type: Literal["create", "none"]
     idempotency_key: str | None
     purchase_order_id: str | None

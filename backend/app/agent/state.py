@@ -9,10 +9,14 @@ class PurchasingState(TypedDict, total=False):
     model: str | None
     context: dict
     investigation_plan: dict
+    investigation_history: list[dict]
+    investigation_attempts: int
     evidence: dict[str, dict]
     evidence_assessment: dict
     analysis: dict
+    raw_ai_proposal: dict | None
     decision: dict
+    decision_guard: dict
     selected_candidate: dict | None
     preliminary_authorization: dict
     authorization: dict

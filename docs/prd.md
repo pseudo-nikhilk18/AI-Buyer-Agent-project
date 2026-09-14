@@ -1,6 +1,6 @@
 # Product Requirements: AI Purchasing Agent
 
-Status: Finalized product requirements; purchasing workflow and buyer workspace implemented.
+Status: Active; purchase recommendation review is the supported end-to-end workflow.
 
 Source: original project brief in `AI Buyer Agent project.pdf`
 
@@ -16,23 +16,18 @@ This is an operational decision system, not a general chatbot. It must investiga
 
 A retail or quick-commerce buyer responsible for replenishment across products, suppliers, and fulfillment nodes. They need decisions that are fast, explainable, auditable, and safe.
 
-## 3. Supported purchasing situations
+## 3. Product scope
 
-One shared workflow handles four event types:
+Purchase recommendation review is implemented end to end. The agent receives a recommendation, investigates it, and returns `accept`, `modify`, `reject`, or `investigate`. Authorized purchase actions are executed and independently validated.
 
-1. **Recommendation review:** accept, modify, reject, or investigate a proposed purchase.
-2. **Supplier shortfall:** replan when a supplier cannot fulfill the complete order.
-3. **Demand change:** respond when actual demand makes the current purchasing plan insufficient or excessive.
-4. **Constraint resolution:** find a safe course when budget, storage, supplier, quantity, or timing constraints block the obvious action.
+Six controlled variations demonstrate the same workflow: a correct recommendation, excessive quantity, no purchase required, stale evidence, human approval, and an incorrect persisted outcome.
 
-These situations reuse the same evidence, policies, authorization, action, and validation capabilities.
-
-Recommendation review receives the complete end-to-end implementation and deepest evaluation coverage. The other three situations remain real, runnable paths through the same workflow, implemented through focused cases that prove replanning and constraint handling without duplicating the primary workflow.
+Supplier shortfall, demand change, and purchasing constraints remain useful evaluation probes and architectural extensions. They are not presented as complete product capabilities until their source events, evidence, decisions, and actions are modelled end to end.
 
 ## 4. Operating workflow
 
 1. Receive a purchasing event and create a traceable case.
-2. Let the agent select and call the tools needed to investigate it.
+2. Let the agent plan the evidence needed to investigate it without seeing the expected answer.
 3. Check evidence completeness, freshness, and consistency.
 4. Calculate the replenishment requirement and feasible options using deterministic policy code.
 5. Produce a structured decision and explain the important factors.
@@ -43,7 +38,7 @@ Recommendation review receives the complete end-to-end implementation and deepes
 
 ## 5. Intelligence and authority
 
-The LLM may:
+The live LLM may:
 
 - choose investigation tools;
 - identify missing or conflicting evidence;
@@ -52,7 +47,7 @@ The LLM may:
 - explain its decision; and
 - replan after changed data or a failed action.
 
-The LLM may not bypass data validation, purchasing rules, authorization, or post-action validation. Deterministic Python services are authoritative for calculations, constraints, and executable actions.
+The LLM may not see evaluation answers or bypass data validation, purchasing rules, authorization, or post-action validation. Deterministic Python services are authoritative for calculations, constraints, and executable actions. The raw model proposal and the final guarded decision are recorded separately.
 
 Decision priority is loss-bounded: satisfy hard constraints, protect demand and safety stock, then choose the smallest feasible quantity and spend. Missing or stale evidence lowers authority and cannot be converted into a confident action.
 
@@ -134,7 +129,7 @@ The system preserves the event, tool calls, evidence, policy results, decision, 
 
 ### FR-7 — Buyer workspace
 
-The interface shows cases, evidence, calculations, constraints, decision, authorization, action, and validation as an operational workflow rather than a chat transcript.
+The interface first explains the company buyer, supplier, fulfillment node, and one purchasing workflow. It then presents grouped demo scenarios and shows the AI proposal, safety decision, evidence, authorization, action, and validation without resembling a chat transcript or unexplained work queue.
 
 ### FR-8 — Provider configuration
 
@@ -145,20 +140,20 @@ The agent supports Gemini, OpenAI, and Anthropic through a provider-neutral adap
 - Reliable: explicit states, idempotent writes, bounded retries, and no fake success.
 - Explainable: every decision links to concrete evidence and policy results.
 - Safe: secrets remain outside source control and no action bypasses authorization.
-- Evaluatable: deterministic graders can verify evidence, decisions, constraints, actions, validation, and recovery.
+- Evaluatable: blinded live-agent evaluation measures model behavior, while deterministic graders separately verify evidence, constraints, actions, validation, and recovery.
 - Maintainable: UI, agent orchestration, domain policy, persistence, and integrations remain separate.
 - Accessible: the complete buyer workflow is usable with keyboard and assistive technology.
 - Repeatable: Docker provides a documented local environment and seeded reset path.
-- Honest: replayed agent runs are clearly labelled and never counted as live evaluation.
+- Honest: raw model proposals, guard interventions, and replayed system checks are clearly distinguished.
 
 ## 12. Acceptance criteria
 
 The completed product must let a reviewer:
 
 - start the system through the documented Docker workflow;
-- run seeded cases covering all four purchasing situations;
+- run controlled variations of purchase recommendation review;
 - inspect which evidence and tools drove each decision;
-- observe all four decision outcomes across the evaluation set;
+- observe accept, modify, reject, and investigate outcomes across the evaluation set;
 - observe both automatic authorization and human review;
 - see an authorized purchase-order action change persisted state;
 - see the validator catch a deliberately incorrect outcome; and

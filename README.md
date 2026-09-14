@@ -6,24 +6,28 @@ The original project brief is in [`AI Buyer Agent project.pdf`](./AI%20Buyer%20A
 
 ## Current status
 
-The purchasing workflow and buyer workspace are implemented. All nine deterministic end-to-end evaluations pass with zero hard-safety failures. Reviewer Docker packaging remains.
+Purchase recommendation review is implemented end to end. The live agent investigation, blinded model proposal, deterministic loss guard, authorization, PO execution, read-back validation, buyer workspace, and separate evaluation paths are operational. Reviewer Docker packaging remains.
+
+Latest checked-in proof: Gemini 2.5 Flash passed the blinded live case with a correct raw proposal and zero hard-safety failures; the separate system/safety regression passed 10/10 checks, including concurrent idempotency.
 
 ## Product
 
-One shared workflow handles purchase recommendation review, supplier shortfall, demand change, and purchasing constraints.
+The supported product workflow reviews one purchase recommendation for the company's internal buyer. Customers create demand, the fulfillment node serves that demand, and an approved PO asks the external supplier to replenish the node.
 
 ```text
 purchasing event
   -> agent investigation
-  -> deterministic purchasing policy
-  -> decision and action plan
+  -> live model proposal
+  -> deterministic loss-bounded guard
   -> risk-based authorization
   -> purchase-order action
   -> independent read-back validation
   -> complete, replan, or escalate
 ```
 
-The LLM selects tools, investigates uncertainty, proposes a plan, explains it, and may replan. Deterministic services control calculations, constraints, authorization, mutations, and validation.
+The live model selects evidence tools, states why each source is needed, closes missing-evidence gaps, compares safe candidates, and proposes a decision. It never receives fixture answers. Deterministic services control calculations, constraints, authorization, mutations, and validation. The raw proposal and guarded outcome remain separately inspectable.
+
+Six variations exercise accept, modify, reject, investigate, human approval, and incorrect persisted state. Supplier shortfall, demand change, and budget records remain explicit additional probes rather than being misrepresented as complete workflows.
 
 ## Technology
 
@@ -36,15 +40,18 @@ The LLM selects tools, investigates uncertainty, proposes a plan, explains it, a
 | Data | PostgreSQL, SQLAlchemy, Alembic |
 | Development runtime | Native Vite and FastAPI processes with local PostgreSQL |
 | Reviewer runtime | Docker Compose |
-| Evaluation | Deterministic Python graders |
+| Evaluation | Blinded live-agent graders plus deterministic system/safety regression |
 
 Model names are configuration rather than hardcoded product decisions. Live mode uses the selected provider. Clearly labelled replay mode runs the same graph deterministically against seeded evidence without an API key and is not presented as live-model evaluation.
 
 ## Evaluation
 
-The evaluation suite measures the complete purchasing outcome: evidence gathered, decision correctness, constraint compliance, authorization, action, post-action validation, and recovery.
+Two evaluation paths prevent inflated claims:
 
-It includes all four decisions, supplier shortfall, demand change, hard constraints, stale evidence, human approval, idempotent retry, and an action that acknowledges success but persists incorrect state. The latest report is in [`artifacts/evaluations/latest.md`](./artifacts/evaluations/latest.md).
+- Live-agent evaluation grades the configured model's tool plan and raw proposal against hidden labels, then separately grades the guarded action and outcome.
+- Replay system/safety regression proves policy, routing, authorization, concurrency-safe idempotency, mutation, validation, and recovery without claiming model intelligence.
+
+Reports are written under [`artifacts/evaluations/`](./artifacts/evaluations).
 
 ## Local setup
 
@@ -63,6 +70,7 @@ Start the API:
 ```bash
 cd backend
 cp .env.example .env
+# Add your Gemini API key to .env
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -82,27 +90,28 @@ npm run dev
 
 The web app runs at `http://localhost:5173`, the API at `http://localhost:8000`, and API documentation at `http://localhost:8000/docs`. `GET /api/health` verifies the API and performs a real PostgreSQL query.
 
-Run the complete backend evaluation from `backend/`:
+Run one blinded live-agent case from `backend/` (repeat `--case` or omit it for all six):
 
 ```bash
 source .venv/bin/activate
-python -m app.evaluation
+python -m app.live_evaluation --case REC-MODIFY
+```
+
+Run the no-key system/safety regression:
+
+```bash
+AI_MODE=replay python -m app.evaluation
 ```
 
 ## Model configuration
 
-The copied backend environment is ready to run as-is. `AI_MODE=replay` exercises the complete seeded workflow without calling an LLM or requiring an API key.
-
-To use Gemini instead, edit `backend/.env`: change `AI_MODE` to `live`, then add these three lines:
+The example environment selects live Gemini. Edit this line in `backend/.env`:
 
 ```text
-AI_MODE=live
-LLM_PROVIDER=gemini
-LLM_MODEL=gemini-3.8-flash
 GEMINI_API_KEY=replace-with-your-gemini-api-key
 ```
 
-The model is a stable Gemini API model, but availability and rate limits depend on the key. OpenAI and Anthropic remain supported by using their provider name, model name, and matching key variable. The application refuses incomplete live configuration.
+It defaults to `gemini-2.5-flash`. OpenAI and Anthropic remain supported by changing `LLM_PROVIDER`, `LLM_MODEL`, and the matching key variable. The application refuses incomplete live configuration. Use replay only for the explicit no-key regression command above.
 
 ## Project map
 
@@ -113,8 +122,8 @@ The model is a stable Gemini API model, but availability and rate limits depend 
 | [`docs/evaluation.md`](./docs/evaluation.md) | Cases, graders, safety failures, metrics, and reporting. |
 | [`docs/decisions.md`](./docs/decisions.md) | Consequential product and technical decisions with reasoning. |
 | [`AGENTS.md`](./AGENTS.md) | Working standards for contributors and coding agents. |
-| [`frontend/`](./frontend) | React buyer workspace for cases, evidence, decisions, policy checks, approval, actions, and validation. |
-| [`backend/`](./backend) | FastAPI API, LangGraph workflow, policy engine, simulator, evaluation runner, seed data, and migrations. |
+| [`frontend/`](./frontend) | React buyer workspace for actors, demo scenarios, model investigation, raw proposals, guarded decisions, actions, and validation. |
+| [`backend/`](./backend) | FastAPI API, LangGraph workflow, policy engine, simulator, live and replay evaluation runners, seed data, and migrations. |
 
 No undocumented step should be required to run or understand the implemented project.
 

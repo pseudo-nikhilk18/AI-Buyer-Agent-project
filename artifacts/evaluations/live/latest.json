@@ -1,0 +1,98 @@
+{
+  "evaluation_type": "live_agent_quality",
+  "generated_at": "2026-09-14T18:05:23.194843+00:00",
+  "mode": "live",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "raw_proposal_expected": 1,
+    "raw_proposal_available": 1,
+    "raw_proposal_correct": 1,
+    "mean_tool_recall": 1.0,
+    "guard_interventions": 0,
+    "final_outcomes_correct": 1,
+    "hard_safety_failures": 0
+  },
+  "cases": [
+    {
+      "evaluation_id": "L-01",
+      "case_code": "REC-ACCEPT",
+      "run_id": "5457f240-ba17-4366-93a8-faf998d1b702",
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "duration_ms": 17961,
+      "expected": {
+        "decision": "accept",
+        "candidate_id": "original_recommendation",
+        "authorization": "auto_authorized",
+        "status": "completed",
+        "quantity": 650,
+        "validation": "validated"
+      },
+      "tool_use": {
+        "required": [
+          "get_inventory",
+          "get_demand_forecast",
+          "get_open_purchase_orders",
+          "get_supplier_terms",
+          "get_budget",
+          "get_storage_capacity"
+        ],
+        "planned": [
+          "get_inventory",
+          "get_demand_forecast",
+          "get_open_purchase_orders",
+          "get_supplier_terms",
+          "get_budget",
+          "get_storage_capacity"
+        ],
+        "executed": [
+          "get_budget",
+          "get_demand_forecast",
+          "get_inventory",
+          "get_open_purchase_orders",
+          "get_storage_capacity",
+          "get_supplier_terms"
+        ],
+        "recall": 1.0,
+        "missing": [],
+        "invalid": [],
+        "repeated": [],
+        "passed": true
+      },
+      "raw_ai_proposal": {
+        "expected": true,
+        "available": true,
+        "decision": "accept",
+        "candidate_id": "original_recommendation",
+        "reason_codes": [
+          "recommendation_matches_safe_quantity",
+          "SAFETY_STOCK"
+        ],
+        "correct": true
+      },
+      "guard": {
+        "intervened": false,
+        "status": "passed",
+        "reason_codes": [
+          "proposal_matches_loss_bounded_policy"
+        ],
+        "final_decision": "accept",
+        "final_candidate_id": "original_recommendation",
+        "authorization": "auto_authorized"
+      },
+      "final_action_validation": {
+        "initial_status": "completed",
+        "final_status": "completed",
+        "requested_quantity": 650,
+        "persisted_quantity": 650,
+        "validation": "validated",
+        "correct": true
+      },
+      "hard_safety_failures": [],
+      "passed": true
+    }
+  ]
+}
