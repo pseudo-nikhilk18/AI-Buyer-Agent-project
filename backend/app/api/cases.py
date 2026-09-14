@@ -28,6 +28,7 @@ from app.domain.schemas import (
     ReviewDecision,
     SupplierEvidence,
 )
+from app.evals.dataset import public_example_metadata
 from app.models import AgentRun, EvidenceRecord, PurchasingCase
 from app.purchasing_tools import (
     get_budget,
@@ -64,6 +65,8 @@ class CaseSummary(ApiModel):
     status: str
     latest_decision: str | None
     latest_run_status: str | None
+    test_purpose: str
+    test_dimensions: list[str]
 
 
 class ReviewRequest(ApiModel):
@@ -89,6 +92,7 @@ class RunView(ApiModel):
     provider: str | None
     model: str | None
     status: str
+    error_code: str | None
     decision: DecisionDraft | None
     raw_ai_proposal: DecisionDraft | None
     decision_guard: DecisionGuardResult | None
@@ -127,6 +131,8 @@ class CaseDetail(ApiModel):
     storage_capacity: CapacityEvidence
     evidence_assessment: EvidenceAssessment
     latest_run: RunView | None
+    test_purpose: str
+    test_dimensions: list[str]
 
 
 def optional_model(model_type, payload):
@@ -148,6 +154,7 @@ def build_run_view(session: Session, run: AgentRun) -> RunView:
         provider=run.provider,
         model=run.model,
         status=run.status,
+        error_code=run.error_code,
         decision=optional_model(DecisionDraft, state.get("decision")),
         raw_ai_proposal=optional_model(DecisionDraft, state.get("raw_ai_proposal")),
         decision_guard=optional_model(DecisionGuardResult, state.get("decision_guard")),
@@ -198,7 +205,12 @@ def get_latest_run(session: Session, case_id: UUID) -> AgentRun | None:
 
 @router.get("", response_model=list[CaseSummary])
 def list_cases(session: Session = Depends(get_db)) -> list[CaseSummary]:
-    cases = session.scalars(select(PurchasingCase).order_by(PurchasingCase.created_at)).all()
+    public_metadata = public_example_metadata()
+    cases = session.scalars(
+        select(PurchasingCase)
+        .where(PurchasingCase.code.in_(public_metadata))
+        .order_by(PurchasingCase.created_at)
+    ).all()
     latest_runs: dict[UUID, AgentRun] = {}
     if cases:
         runs = session.scalars(
@@ -212,6 +224,7 @@ def list_cases(session: Session = Depends(get_db)) -> list[CaseSummary]:
     response: list[CaseSummary] = []
     for item in cases:
         latest = latest_runs.get(item.id)
+        metadata = public_metadata[item.code]
         response.append(
             CaseSummary(
                 id=item.id,
@@ -224,6 +237,8 @@ def list_cases(session: Session = Depends(get_db)) -> list[CaseSummary]:
                 status=item.status,
                 latest_decision=latest.decision if latest else None,
                 latest_run_status=latest.status if latest else None,
+                test_purpose=metadata.test_purpose,
+                test_dimensions=metadata.dimensions,
             )
         )
     return response
@@ -232,8 +247,10 @@ def list_cases(session: Session = Depends(get_db)) -> list[CaseSummary]:
 @router.get("/{case_id}", response_model=CaseDetail)
 def get_case(case_id: UUID, session: Session = Depends(get_db)) -> CaseDetail:
     purchasing_case = session.get(PurchasingCase, case_id)
-    if purchasing_case is None:
+    public_metadata = public_example_metadata()
+    if purchasing_case is None or purchasing_case.code not in public_metadata:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found.")
+    metadata = public_metadata[purchasing_case.code]
     context = get_case_context(session, case_id)
     inventory = get_inventory(session, case_id)
     forecast = get_demand_forecast(session, case_id)
@@ -268,6 +285,8 @@ def get_case(case_id: UUID, session: Session = Depends(get_db)) -> CaseDetail:
         storage_capacity=capacity,
         evidence_assessment=assess_evidence(context=context, evidence=evidence),
         latest_run=build_run_view(session, latest) if latest else None,
+        test_purpose=metadata.test_purpose,
+        test_dimensions=metadata.dimensions,
     )
 
 

@@ -68,6 +68,7 @@ def get_case_context(session: Session, case_id: UUID) -> CaseContext:
         node_id=str(purchasing_case.node_id),
         node_name=purchasing_case.node.name,
         supplier_id=str(purchasing_case.supplier_id),
+        supplier_name=purchasing_case.supplier.name,
         recommended_quantity=purchasing_case.recommended_quantity,
         simulator_mode=purchasing_case.simulator_mode,
         review_period_days=purchasing_case.policy.review_period_days,

@@ -14,3 +14,6 @@ backend/.venv/
 
 frontend/node_modules/
 frontend/dist/
+
+# Keep the latest evaluation report in Git; retain timestamped experiments locally.
+artifacts/evaluations/live/experiment-*.json

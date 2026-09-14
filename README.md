@@ -1,33 +1,27 @@
 # AI Purchasing Agent
 
-A purchasing decision system that investigates operational evidence, decides what should happen, executes authorized purchase-order actions, and validates the real outcome.
+A full-stack purchasing agent for a retail or quick-commerce buyer. It investigates current business evidence, challenges a purchase recommendation, takes an authorized action, and verifies the result instead of trusting an acknowledgement.
 
-The original project brief is in [`AI Buyer Agent project.pdf`](./AI%20Buyer%20Agent%20project.pdf).
+The source brief is [`AI Buyer Agent project.pdf`](./AI%20Buyer%20Agent%20project.pdf).
 
-## Current status
+## What is implemented
 
-Purchase recommendation review is implemented end to end. The live agent investigation, blinded model proposal, deterministic loss guard, authorization, PO execution, read-back validation, buyer workspace, and separate evaluation paths are operational. Reviewer Docker packaging remains.
-
-Latest checked-in proof: Gemini 2.5 Flash passed the blinded live case with a correct raw proposal and zero hard-safety failures; the separate system/safety regression passed 10/10 checks, including concurrent idempotency.
-
-## Product
-
-The supported product workflow reviews one purchase recommendation for the company's internal buyer. Customers create demand, the fulfillment node serves that demand, and an approved PO asks the external supplier to replenish the node.
+Purchase recommendation review runs end to end:
 
 ```text
-purchasing event
-  -> agent investigation
-  -> live model proposal
-  -> deterministic loss-bounded guard
-  -> risk-based authorization
-  -> purchase-order action
-  -> independent read-back validation
-  -> complete, replan, or escalate
+purchasing situation
+  -> AI plans the investigation
+  -> typed tools retrieve current evidence
+  -> deterministic code calculates safe candidates
+  -> AI proposes accept / modify / reject / investigate
+  -> an independent guard checks the proposal
+  -> the action auto-runs or pauses for the buyer
+  -> the system reads the PO back and validates it
 ```
 
-The live model selects evidence tools, states why each source is needed, closes missing-evidence gaps, compares safe candidates, and proposes a decision. It never receives fixture answers. Deterministic services control calculations, constraints, authorization, mutations, and validation. The raw proposal and guarded outcome remain separately inspectable.
+The opening screen is an evaluation runner with six understandable tests. Each result follows the brief directly: situation, information investigated, agent decision, action taken, and result validation. Technical evidence and the LangGraph trace remain available without dominating the buyer view.
 
-Six variations exercise accept, modify, reject, investigate, human approval, and incorrect persisted state. Supplier shortfall, demand change, and budget records remain explicit additional probes rather than being misrepresented as complete workflows.
+The versioned dataset contains 12 cases. The six UI cases cover accept, modify, reject, stale evidence, buyer approval, and a wrong persisted quantity. The full evaluation also probes supplier shortage, changed demand, insufficient budget, missing evidence, prompt injection, and a different SKU/supplier/node.
 
 ## Technology
 
@@ -35,27 +29,18 @@ Six variations exercise accept, modify, reject, investigate, human approval, and
 | --- | --- |
 | Web | React JavaScript, Vite, Tailwind CSS |
 | API | Python, FastAPI, Pydantic |
-| Agent orchestration | LangGraph |
-| LLMs | Configurable Gemini, OpenAI, or Anthropic provider and model |
+| Agent workflow | LangGraph with PostgreSQL checkpoints |
+| Models | Configurable Gemini, OpenAI, or Anthropic |
 | Data | PostgreSQL, SQLAlchemy, Alembic |
-| Development runtime | Native Vite and FastAPI processes with local PostgreSQL |
-| Reviewer runtime | Docker Compose |
-| Evaluation | Blinded live-agent graders plus deterministic system/safety regression |
+| AI evaluation | Dataset-backed configured-model experiments |
+| Engineering checks | Separate deterministic safety regression |
+| Reviewer setup | Docker Compose |
 
-Model names are configuration rather than hardcoded product decisions. Live mode uses the selected provider. Clearly labelled replay mode runs the same graph deterministically against seeded evidence without an API key and is not presented as live-model evaluation.
-
-## Evaluation
-
-Two evaluation paths prevent inflated claims:
-
-- Live-agent evaluation grades the configured model's tool plan and raw proposal against hidden labels, then separately grades the guarded action and outcome.
-- Replay system/safety regression proves policy, routing, authorization, concurrency-safe idempotency, mutation, validation, and recovery without claiming model intelligence.
-
-Reports are written under [`artifacts/evaluations/`](./artifacts/evaluations).
+The LLM chooses evidence and proposes a decision. Ordinary Python controls calculations, constraints, authorization, writes, and read-back validation. Raw model output and the final guarded outcome are stored separately.
 
 ## Local setup
 
-Prerequisites: Python 3.13, Node.js 24 or newer, npm, and PostgreSQL 17.
+Prerequisites: Python 3.13, Node.js 24+, npm, and PostgreSQL 17.
 
 Start PostgreSQL and create the database once:
 
@@ -70,7 +55,7 @@ Start the API:
 ```bash
 cd backend
 cp .env.example .env
-# Add your Gemini API key to .env
+# In .env, use the Gemini, OpenAI, or Anthropic block matching your key.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -79,7 +64,7 @@ python -m app.seed
 python main.py
 ```
 
-Start the web app in a second terminal:
+Start the frontend in a second terminal:
 
 ```bash
 cd frontend
@@ -88,45 +73,65 @@ npm install
 npm run dev
 ```
 
-The web app runs at `http://localhost:5173`, the API at `http://localhost:8000`, and API documentation at `http://localhost:8000/docs`. `GET /api/health` verifies the API and performs a real PostgreSQL query.
+Open `http://localhost:5173`. The API is at `http://localhost:8000`; `GET /api/health` checks both API and database connectivity.
 
-Run one blinded live-agent case from `backend/` (repeat `--case` or omit it for all six):
+## Evaluation
+
+Run one live case first when using a free key:
 
 ```bash
+cd backend
 source .venv/bin/activate
 python -m app.live_evaluation --case REC-MODIFY
 ```
 
-Run the no-key system/safety regression:
+Run the six core cases or all 12 cases:
 
 ```bash
-AI_MODE=replay python -m app.evaluation
+python -m app.live_evaluation --suite quick --delay-seconds 15
+python -m app.live_evaluation --suite full --delay-seconds 15
 ```
 
-## Model configuration
+Measure nondeterministic stability by repeating selected cases:
 
-The example environment selects live Gemini. Edit this line in `backend/.env`:
-
-```text
-GEMINI_API_KEY=replace-with-your-gemini-api-key
+```bash
+python -m app.live_evaluation --case REC-MODIFY --repetitions 3 --delay-seconds 15
 ```
 
-It defaults to `gemini-2.5-flash`. OpenAI and Anthropic remain supported by changing `LLM_PROVIDER`, `LLM_MODEL`, and the matching key variable. The application refuses incomplete live configuration. Use replay only for the explicit no-key regression command above.
+`--judge` adds an optional explanation-quality rubric using one extra model call per trial. Core correctness never depends on this subjective score. Free-tier quotas may require a larger delay or a smaller selection.
+
+Run the no-key system and safety regression:
+
+```bash
+AI_MODE=replay python -m app.system_regression
+```
+
+The configured-model evaluation is the AI quality result. One scored Gemini `REC-MODIFY` trial passed trajectory, raw decision, explanation grounding, final outcome, and every hard-safety check; the complete live suite has not yet run. Provider failures are reported separately as target errors rather than incorrect model decisions. Reports are under [`artifacts/evaluations/live/`](./artifacts/evaluations/live). Separately, the deterministic engineering regression passes 13/13 system checks and is stored under [`artifacts/system-regression/`](./artifacts/system-regression). It is never counted as model quality. See [`docs/evaluation.md`](./docs/evaluation.md) for the scoring contract.
+
+## Docker reviewer setup
+
+Docker is optional for local development. For a clean reviewer environment:
+
+```bash
+cp backend/.env.example backend/.env
+# Add a provider key to backend/.env, then:
+docker compose up --build
+```
+
+Open `http://localhost:5173`. Compose starts PostgreSQL, applies migrations, seeds the dataset, starts FastAPI, and serves the built React app. To inspect the deterministic workflow without a key, set `AI_MODE=replay` in `backend/.env`; replay is never presented as live AI quality.
 
 ## Project map
 
-| File | Purpose |
+| Path | Purpose |
 | --- | --- |
-| [`docs/prd.md`](./docs/prd.md) | Product capabilities, behavior, guardrails, and acceptance criteria. |
-| [`docs/architecture.md`](./docs/architecture.md) | Stack, components, graph, data boundaries, and failure handling. |
-| [`docs/evaluation.md`](./docs/evaluation.md) | Cases, graders, safety failures, metrics, and reporting. |
-| [`docs/decisions.md`](./docs/decisions.md) | Consequential product and technical decisions with reasoning. |
-| [`AGENTS.md`](./AGENTS.md) | Working standards for contributors and coding agents. |
-| [`frontend/`](./frontend) | React buyer workspace for actors, demo scenarios, model investigation, raw proposals, guarded decisions, actions, and validation. |
-| [`backend/`](./backend) | FastAPI API, LangGraph workflow, policy engine, simulator, live and replay evaluation runners, seed data, and migrations. |
+| [`docs/prd.md`](./docs/prd.md) | Product behavior and acceptance criteria |
+| [`docs/architecture.md`](./docs/architecture.md) | Components, graph, boundaries, and consistency |
+| [`docs/evaluation.md`](./docs/evaluation.md) | Dataset, graders, metrics, and feedback loop |
+| [`docs/decisions.md`](./docs/decisions.md) | Consequential decisions and reasoning |
+| [`AGENTS.md`](./AGENTS.md) | Contributor working agreement |
+| [`backend/evals/purchasing_agent_dataset.json`](./backend/evals/purchasing_agent_dataset.json) | Versioned inputs, evaluator-only references, and test metadata |
+| [`backend/app/agent/`](./backend/app/agent) | LangGraph, prompts, provider adapters, routing, and nodes |
+| [`backend/app/evals/`](./backend/app/evals) | Dataset validation, modular graders, judge, and reporting |
+| [`frontend/src/`](./frontend/src) | Evaluation-first React interface |
 
-No undocumented step should be required to run or understand the implemented project.
-
-## Security
-
-Never commit API keys, tokens, passwords, or other secrets. Provider credentials will be loaded from environment variables documented in `.env.example`.
+No secret belongs in the repository. `.env.example` files contain only safe placeholders.

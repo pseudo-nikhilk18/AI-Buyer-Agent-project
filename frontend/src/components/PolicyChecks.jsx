@@ -5,8 +5,8 @@ export function PolicyChecks({ checks }) {
     <section className="sheet-section" aria-labelledby="policy-heading">
       <div className="section-heading">
         <div>
-          <h2 id="policy-heading">Policy Checks</h2>
-          <p>Deterministic gates applied after the proposed decision.</p>
+          <h2 id="policy-heading">Purchasing Safety</h2>
+          <p>Independent business rules checked before any order can be created.</p>
         </div>
       </div>
 
@@ -27,13 +27,17 @@ export function PolicyChecks({ checks }) {
                 <p>{check.detail}</p>
               </div>
               <span className={`policy-row__severity policy-row__severity--${check.severity}`}>
-                {formatLabel(check.severity)}
+                {check.severity === "hard"
+                  ? "Required purchasing rule"
+                  : check.severity === "authorization"
+                    ? "Buyer approval rule"
+                    : "Information only"}
               </span>
             </article>
           ))}
         </div>
       ) : (
-        <div className="projection-empty">Policy checks appear after the investigation runs.</div>
+        <div className="projection-empty">Purchasing rules appear after the agent runs.</div>
       )}
     </section>
   );

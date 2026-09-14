@@ -12,7 +12,7 @@ export function ReviewPanel({ run, busy, onReview }) {
   return (
     <section className="review-panel" aria-labelledby="review-heading">
       <div>
-        <h2 id="review-heading">Buyer Authorization Required</h2>
+        <h3 id="review-heading">Buyer approval needed</h3>
         <p>{request.decision.summary}</p>
       </div>
       <dl>
@@ -48,7 +48,7 @@ export function ReviewPanel({ run, busy, onReview }) {
               onClick={() => onReview("reject", note)}
               type="button"
             >
-              {busy ? "Applying Decision…" : "Confirm Rejection"}
+              {busy ? "Applying decision…" : "Confirm rejection"}
             </button>
             <button
               className="button button--quiet"
@@ -56,7 +56,7 @@ export function ReviewPanel({ run, busy, onReview }) {
               onClick={() => setConfirmingReject(false)}
               type="button"
             >
-              Keep Review Open
+              Keep review open
             </button>
           </div>
         </div>
@@ -68,7 +68,7 @@ export function ReviewPanel({ run, busy, onReview }) {
             onClick={() => onReview("approve", note)}
             type="button"
           >
-            {busy ? "Applying Decision…" : "Approve and Create PO"}
+            {busy ? "Applying decision…" : "Approve and create PO"}
           </button>
           <button
             className="button button--danger"
@@ -76,7 +76,7 @@ export function ReviewPanel({ run, busy, onReview }) {
             onClick={() => setConfirmingReject(true)}
             type="button"
           >
-            Reject Request
+            Reject purchase
           </button>
         </div>
       )}

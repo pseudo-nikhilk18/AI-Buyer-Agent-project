@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, NAMESPACE_URL, uuid5
 
@@ -6,6 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.database import session_scope
+from app.evals.dataset import EvaluationExample, load_evaluation_dataset
 from app.models import (
     BudgetSnapshot,
     CapacitySnapshot,
@@ -26,254 +26,190 @@ def stable_id(name: str) -> UUID:
     return uuid5(NAMESPACE_URL, f"buyer-agent-demo:{name}")
 
 
-PRODUCT_ID = stable_id("product-rice-1kg")
-NODE_ID = stable_id("node-north-hub")
-SUPPLIER_ID = stable_id("supplier-harvest")
-SUPPLIER_TERM_ID = stable_id("supplier-term-harvest-rice")
-POLICY_ID = stable_id("policy-standard")
+def _upsert_shared_records(
+    session: Session,
+    example: EvaluationExample,
+    now: datetime,
+) -> tuple[UUID, UUID, UUID, UUID]:
+    case_input = example.input
 
-
-@dataclass(frozen=True)
-class CaseSeed:
-    code: str
-    title: str
-    recommended_quantity: int
-    daily_demand: int
-    on_hand_quantity: int = 400
-    reserved_quantity: int = 50
-    damaged_quantity: int = 10
-    budget_minor: int = 7_000_000
-    storage_capacity_quantity: int = 700
-    supplier_available_quantity: int = 5_000
-    inbound_quantity: int = 120
-    scenario_type: str = "recommendation_review"
-    stale_forecast: bool = False
-    simulator_mode: str = "normal"
-
-
-CASE_SEEDS = (
-    CaseSeed(
-        code="REC-ACCEPT",
-        title="Recommendation matches the safe quantity",
-        recommended_quantity=650,
-        daily_demand=90,
-    ),
-    CaseSeed(
-        code="REC-MODIFY",
-        title="Recommendation carries avoidable excess stock",
-        recommended_quantity=800,
-        daily_demand=90,
-    ),
-    CaseSeed(
-        code="REC-REJECT",
-        title="Existing coverage makes another order unnecessary",
-        recommended_quantity=800,
-        daily_demand=90,
-        on_hand_quantity=1_200,
-    ),
-    CaseSeed(
-        code="REC-INVESTIGATE",
-        title="The demand forecast is too old to authorize spending",
-        recommended_quantity=800,
-        daily_demand=90,
-        stale_forecast=True,
-    ),
-    CaseSeed(
-        code="REC-VALIDATE",
-        title="The purchasing system persists the wrong quantity",
-        recommended_quantity=650,
-        daily_demand=90,
-        simulator_mode="persist_short",
-    ),
-    CaseSeed(
-        code="REC-REVIEW",
-        title="A safe order exceeds automatic spending authority",
-        recommended_quantity=800,
-        daily_demand=105,
-        budget_minor=10_000_000,
-        storage_capacity_quantity=900,
-    ),
-    CaseSeed(
-        code="SUPPLIER-SHORTFALL",
-        title="Confirmed supply covers only part of the requirement",
-        recommended_quantity=500,
-        daily_demand=90,
-        inbound_quantity=250,
-        supplier_available_quantity=250,
-        scenario_type="supplier_shortfall",
-    ),
-    CaseSeed(
-        code="DEMAND-CHANGE",
-        title="Higher demand changes the safe order quantity",
-        recommended_quantity=650,
-        daily_demand=100,
-        storage_capacity_quantity=800,
-        scenario_type="demand_change",
-    ),
-    CaseSeed(
-        code="HARD-CONSTRAINT",
-        title="Available budget blocks the required purchase",
-        recommended_quantity=650,
-        daily_demand=90,
-        budget_minor=5_000_000,
-        scenario_type="constraint_resolution",
-    ),
-)
-
-
-def upsert_shared_records(session: Session, now: datetime) -> None:
-    product = session.get(Product, PRODUCT_ID)
+    product_id = stable_id(f"product-{case_input.product.sku.lower()}")
+    product = session.scalar(select(Product).where(Product.sku == case_input.product.sku))
     if product is None:
-        product = Product(id=PRODUCT_ID, sku="RICE-1KG", name="Everyday Basmati Rice · 1 kg")
+        product = Product(id=product_id, sku=case_input.product.sku)
         session.add(product)
-    else:
-        product.sku = "RICE-1KG"
-        product.name = "Everyday Basmati Rice · 1 kg"
-        product.active = True
+    product.name = case_input.product.name
+    product.active = True
 
-    node = session.get(FulfillmentNode, NODE_ID)
+    node_id = stable_id(f"node-{case_input.node.code.lower()}")
+    node = session.scalar(
+        select(FulfillmentNode).where(FulfillmentNode.code == case_input.node.code)
+    )
     if node is None:
-        node = FulfillmentNode(id=NODE_ID, code="NORTH-HUB", name="North fulfillment hub")
+        node = FulfillmentNode(id=node_id, code=case_input.node.code)
         session.add(node)
-    else:
-        node.name = "North fulfillment hub"
-        node.active = True
+    node.name = case_input.node.name
+    node.active = True
 
-    supplier = session.get(Supplier, SUPPLIER_ID)
+    supplier_id = stable_id(f"supplier-{case_input.supplier.code.lower()}")
+    supplier = session.scalar(
+        select(Supplier).where(Supplier.code == case_input.supplier.code)
+    )
     if supplier is None:
-        supplier = Supplier(
-            id=SUPPLIER_ID,
-            code="HARVEST",
-            name="Harvest Supply Co.",
-            active=True,
-            approved=True,
-            reliability_percent=96,
-        )
+        supplier = Supplier(id=supplier_id, code=case_input.supplier.code)
         session.add(supplier)
-    else:
-        supplier.name = "Harvest Supply Co."
-        supplier.active = True
-        supplier.approved = True
-        supplier.reliability_percent = 96
+    supplier.name = case_input.supplier.name
+    supplier.active = case_input.supplier.active
+    supplier.approved = case_input.supplier.approved
+    supplier.reliability_percent = case_input.supplier.reliability_percent
 
-    policy = session.get(PurchasingPolicy, POLICY_ID)
+    policy_id = stable_id(f"policy-{case_input.policy.code.lower()}")
+    policy = session.scalar(
+        select(PurchasingPolicy).where(PurchasingPolicy.code == case_input.policy.code)
+    )
     if policy is None:
-        policy = PurchasingPolicy(id=POLICY_ID, code="STANDARD")
+        policy = PurchasingPolicy(id=policy_id, code=case_input.policy.code)
         session.add(policy)
-    policy.review_period_days = 7
-    policy.safety_stock_days = 2
-    policy.inventory_freshness_minutes = 15
-    policy.forecast_freshness_hours = 24
-    policy.supplier_freshness_minutes = 60
-    policy.constraint_freshness_minutes = 15
-    policy.auto_spend_limit_minor = 6_000_000
+    policy.review_period_days = case_input.policy.review_period_days
+    policy.safety_stock_days = case_input.policy.safety_stock_days
+    policy.inventory_freshness_minutes = case_input.policy.inventory_freshness_minutes
+    policy.forecast_freshness_hours = case_input.policy.forecast_freshness_hours
+    policy.supplier_freshness_minutes = case_input.policy.supplier_freshness_minutes
+    policy.constraint_freshness_minutes = case_input.policy.constraint_freshness_minutes
+    policy.auto_spend_limit_minor = case_input.policy.auto_spend_limit_minor
 
     session.flush()
-    term = session.get(SupplierTerm, SUPPLIER_TERM_ID)
+    term = session.scalar(
+        select(SupplierTerm).where(
+            SupplierTerm.supplier_id == supplier.id,
+            SupplierTerm.product_id == product.id,
+        )
+    )
     if term is None:
         term = SupplierTerm(
-            id=SUPPLIER_TERM_ID,
-            supplier_id=SUPPLIER_ID,
-            product_id=PRODUCT_ID,
+            id=stable_id(
+                f"supplier-term-{case_input.supplier.code.lower()}-"
+                f"{case_input.product.sku.lower()}"
+            ),
+            supplier_id=supplier.id,
+            product_id=product.id,
         )
         session.add(term)
-    term.unit_cost_minor = 8_000
-    term.currency = "INR"
-    term.minimum_order_quantity = 100
-    term.case_pack_quantity = 50
-    term.lead_time_days = 3
+    term.unit_cost_minor = case_input.supplier_terms.unit_cost_minor
+    term.currency = case_input.supplier_terms.currency
+    term.minimum_order_quantity = case_input.supplier_terms.minimum_order_quantity
+    term.case_pack_quantity = case_input.supplier_terms.case_pack_quantity
+    term.lead_time_days = case_input.supplier_terms.lead_time_days
     term.observed_at = now - timedelta(minutes=5)
+
+    return product.id, node.id, supplier.id, policy.id
 
 
 def seed_demo_data(session: Session) -> list[UUID]:
+    """Seed agent inputs from the versioned evaluation dataset, never its references."""
+    dataset = load_evaluation_dataset()
     now = datetime.now(UTC)
-    case_codes = [item.code for item in CASE_SEEDS]
+    case_codes = [item.case_code for item in dataset.examples]
     session.execute(delete(PurchasingCase).where(PurchasingCase.code.in_(case_codes)))
-    upsert_shared_records(session, now)
 
     created_ids: list[UUID] = []
-    for index, item in enumerate(CASE_SEEDS):
-        case_id = stable_id(f"case-{item.code.lower()}")
-        created_ids.append(case_id)
-        purchasing_case = PurchasingCase(
-            id=case_id,
-            code=item.code,
-            title=item.title,
-            scenario_type=item.scenario_type,
-            product_id=PRODUCT_ID,
-            node_id=NODE_ID,
-            supplier_id=SUPPLIER_ID,
-            policy_id=POLICY_ID,
-            recommended_quantity=item.recommended_quantity,
-            status="ready",
-            simulator_mode=item.simulator_mode,
-            created_at=now + timedelta(seconds=index),
+    for index, example in enumerate(dataset.examples):
+        case_input = example.input
+        product_id, node_id, supplier_id, policy_id = _upsert_shared_records(
+            session, example, now
         )
-        session.add(purchasing_case)
+        case_id = stable_id(f"case-{example.case_code.lower()}")
+        created_ids.append(case_id)
+        session.add(
+            PurchasingCase(
+                id=case_id,
+                code=example.case_code,
+                title=case_input.title,
+                scenario_type=case_input.scenario_type,
+                product_id=product_id,
+                node_id=node_id,
+                supplier_id=supplier_id,
+                policy_id=policy_id,
+                recommended_quantity=case_input.recommended_quantity,
+                status="ready",
+                simulator_mode=case_input.simulator_mode,
+                created_at=now + timedelta(seconds=index),
+            )
+        )
         session.flush()
 
         operational_observed_at = now - timedelta(minutes=5)
-        forecast_observed_at = (
-            now - timedelta(hours=48) if item.stale_forecast else operational_observed_at
-        )
-        session.add(
-            InventorySnapshot(
-                id=stable_id(f"inventory-{item.code}"),
-                case_id=case_id,
-                on_hand_quantity=item.on_hand_quantity,
-                reserved_quantity=item.reserved_quantity,
-                damaged_quantity=item.damaged_quantity,
-                observed_at=operational_observed_at,
-            )
-        )
-        for day_offset in range(1, 11):
+        forecast_observed_at = now - timedelta(hours=case_input.forecast.age_hours)
+        omitted = set(case_input.omitted_evidence)
+
+        if "get_inventory" not in omitted:
             session.add(
-                DemandForecast(
-                    id=stable_id(f"forecast-{item.code}-{day_offset}"),
+                InventorySnapshot(
+                    id=stable_id(f"inventory-{example.case_code}"),
                     case_id=case_id,
-                    demand_date=now.date() + timedelta(days=day_offset),
-                    quantity=item.daily_demand,
-                    observed_at=forecast_observed_at,
+                    **case_input.inventory.model_dump(),
+                    observed_at=operational_observed_at,
                 )
             )
-        session.add_all(
-            [
+        if "get_demand_forecast" not in omitted:
+            for day_offset in range(1, case_input.forecast.days + 1):
+                session.add(
+                    DemandForecast(
+                        id=stable_id(f"forecast-{example.case_code}-{day_offset}"),
+                        case_id=case_id,
+                        demand_date=now.date() + timedelta(days=day_offset),
+                        quantity=case_input.forecast.daily_quantity,
+                        observed_at=forecast_observed_at,
+                    )
+                )
+        if "get_budget" not in omitted:
+            session.add(
                 BudgetSnapshot(
-                    id=stable_id(f"budget-{item.code}"),
+                    id=stable_id(f"budget-{example.case_code}"),
                     case_id=case_id,
-                    available_minor=item.budget_minor,
-                    currency="INR",
+                    available_minor=case_input.budget_minor,
+                    currency=case_input.supplier_terms.currency,
                     observed_at=operational_observed_at,
-                ),
+                )
+            )
+        if "get_storage_capacity" not in omitted:
+            session.add(
                 CapacitySnapshot(
-                    id=stable_id(f"capacity-{item.code}"),
+                    id=stable_id(f"capacity-{example.case_code}"),
                     case_id=case_id,
-                    available_quantity=item.storage_capacity_quantity,
+                    available_quantity=case_input.storage_capacity_quantity,
                     observed_at=operational_observed_at,
-                ),
+                )
+            )
+        if "get_supplier_terms" not in omitted:
+            session.add(
                 SupplierAvailabilitySnapshot(
-                    id=stable_id(f"supplier-availability-{item.code}"),
+                    id=stable_id(f"supplier-availability-{example.case_code}"),
                     case_id=case_id,
-                    available_quantity=item.supplier_available_quantity,
+                    available_quantity=case_input.supplier_available_quantity,
                     observed_at=operational_observed_at,
-                ),
+                )
+            )
+        if "get_open_purchase_orders" not in omitted and case_input.inbound_order:
+            session.add(
                 PurchaseOrder(
-                    id=stable_id(f"inbound-po-{item.code}"),
+                    id=stable_id(f"inbound-po-{example.case_code}"),
                     case_id=case_id,
-                    product_id=PRODUCT_ID,
-                    node_id=NODE_ID,
-                    supplier_id=SUPPLIER_ID,
-                    quantity=item.inbound_quantity,
-                    unit_cost_minor=8_000,
-                    currency="INR",
-                    status="confirmed",
-                    expected_delivery_date=now.date() + timedelta(days=2),
+                    product_id=product_id,
+                    node_id=node_id,
+                    supplier_id=supplier_id,
+                    quantity=case_input.inbound_order.quantity,
+                    unit_cost_minor=case_input.supplier_terms.unit_cost_minor,
+                    currency=case_input.supplier_terms.currency,
+                    status=case_input.inbound_order.status,
+                    expected_delivery_date=(
+                        now.date() + timedelta(days=case_input.inbound_order.arrival_days)
+                    ),
                     idempotency_key=None,
                     created_at=now - timedelta(days=1),
                     updated_at=operational_observed_at,
-                ),
-            ]
-        )
+                )
+            )
 
     return created_ids
 
@@ -281,7 +217,7 @@ def seed_demo_data(session: Session) -> list[UUID]:
 def main() -> None:
     with session_scope() as session:
         case_ids = seed_demo_data(session)
-    print(f"Seeded {len(case_ids)} purchasing cases.")
+    print(f"Seeded {len(case_ids)} purchasing evaluation cases.")
 
 
 if __name__ == "__main__":

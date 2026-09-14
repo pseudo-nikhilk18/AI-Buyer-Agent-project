@@ -1,10 +1,21 @@
 const LABEL_OVERRIDES = {
+  acknowledged: "Order acknowledged",
+  auto_authorized: "Agent can proceed",
+  blocked: "Stopped safely",
+  escalated: "Escalated for correction",
   get_budget: "Available budget",
   get_demand_forecast: "Demand forecast",
   get_inventory: "Inventory position",
   get_open_purchase_orders: "Open purchase orders",
   get_storage_capacity: "Storage capacity",
   get_supplier_terms: "Supplier terms",
+  human_approved: "Buyer approved",
+  human_review: "Buyer approval required",
+  not_required: "No approval needed",
+  passed: "Verified safe",
+  rejected: "Buyer rejected",
+  running: "Agent running",
+  validated: "Result verified",
 };
 
 export function formatCurrency(minor, currency = "INR") {

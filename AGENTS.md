@@ -53,16 +53,20 @@ A feature is done when its evaluation proves the intended decision, evidence gat
 
 - Treat LLM output as untrusted input. Use typed schemas and deterministic business-rule checks.
 - Keep evaluation answers out of model inputs. Record the raw live-model proposal separately from the guarded business outcome, and never present replay results as AI quality.
+- Use the configured live model for product demonstrations and AI evaluations. Replay mode is only for deterministic debugging or engineering regression and must not be run as the default verification path.
+- Define evaluation examples with separate inputs, evaluator-only references, and public metadata. Seed only inputs; apply references after the target run; record dataset and prompt versions.
+- Evaluate agents by tool trajectory, raw decision, grounded explanation, final outcome, hard safety, and repeated-run stability. Optional LLM judges stay separate and never conceal exact failures.
 - Target zero preventable loss introduced by AI. Automatic action must be at least as safe as the validated baseline under conservative evidence; uncertainty reduces authority rather than increasing risk.
 - Do not assume blanket human approval or blanket autonomy. Execute purchasing mutations only under the agreed authorization policy, and route uncertain or high-risk actions to human review.
 - After an action, read back the resulting state and validate it independently. Never report success from an API acknowledgement alone.
 - Keep domain logic separate from UI, LLM prompts, and data access so it is independently verifiable.
 - Frontend anti-slop: establish a product-specific visual direction before coding; use realistic purchasing content, intentional hierarchy, responsive behavior, accessible interactions, and screenshot-based critique. Avoid generic dashboard templates and decorative effects without purpose.
-- Explain the business actors and one end-to-end workflow before exposing demo fixtures; test scenarios must not look like an unexplained production work queue.
+- Open the product UI with simple plain-language agent tests. Present each result as purchasing situation, information investigated, agent decision, action taken, and result validation; keep technical codes and graph internals optional.
 - Backend anti-slop: define contracts and failure modes first; validate at runtime; use typed errors, idempotent writes, structured traces, and evaluation-driven engineering checks. No placeholder logic, fake success states, swallowed errors, or happy-path-only implementations.
 - Run the web app and API directly on macOS against local PostgreSQL during development. Maintain Docker Compose as the reviewer setup and validate it outside the routine local workflow.
 - Use a standard Python `.venv` and `requirements.txt` for backend dependencies. Discuss alternate package managers or additional lint and test tools before adding them.
 - Start Vite and FastAPI separately and configure the browser-facing API URL through `VITE_API_BASE_URL`. Add a development proxy only if an agreed requirement needs one.
+- Do not add an infrastructure layer such as Nginx when the existing runtime can serve the agreed reviewer demo adequately. Every extra service needs a concrete requirement.
 - When available, use `frontend-design` for visual direction, `vercel-react-best-practices` while building React, `web-design-guidelines` for UI audits, and `security-best-practices` for secure-by-default implementation.
 - Preserve Git history and existing user changes. Keep commits focused and independently understandable.
 - Commit and push each cohesive milestone after its implementation, verification, and affected documentation are complete. Do not commit known-broken intermediate states.

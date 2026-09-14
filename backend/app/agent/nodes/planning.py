@@ -50,12 +50,10 @@ REPLAY_INVESTIGATION = {
 def _operational_context(state: PurchasingState) -> dict:
     context = state["context"]
     allowed_fields = (
-        "product_id",
         "product_name",
         "sku",
-        "node_id",
         "node_name",
-        "supplier_id",
+        "supplier_name",
         "recommended_quantity",
     )
     return {field: context[field] for field in allowed_fields}

@@ -12,6 +12,7 @@ from app.agent.checkpoint import setup_checkpointer
 from app.config import get_settings
 from app.database import session_scope
 from app.domain.schemas import ReviewDecision
+from app.evals.dataset import EvaluationExample, dataset_sha256, load_evaluation_dataset
 from app.models import AgentRun, BudgetSnapshot, PurchaseOrder, PurchasingCase
 from app.purchasing_tools import REQUIRED_TOOL_NAMES
 from app.seed import seed_demo_data
@@ -23,10 +24,10 @@ from app.services.action import (
 from app.services.workflow import resume_case_run, start_case_run
 
 
-EVALUATION_TYPE = "system_safety_regression"
+EVALUATION_TYPE = "deterministic_system_safety_regression"
 
 
-class SystemEvaluationModeError(RuntimeError):
+class SystemRegressionModeError(RuntimeError):
     pass
 
 
@@ -39,102 +40,32 @@ class ExpectedOutcome:
     status: str
     quantity: int | None
     validation: str
-    required_reason: str | None = None
+    required_reasons: tuple[str, ...] = ()
     requires_review: bool = False
 
 
-SYSTEM_EXPECTED_OUTCOMES = (
-    ExpectedOutcome(
-        "E-01",
-        "REC-ACCEPT",
-        "accept",
-        "auto_authorized",
-        "completed",
-        650,
-        "validated",
-    ),
-    ExpectedOutcome(
-        "E-02",
-        "REC-MODIFY",
-        "modify",
-        "auto_authorized",
-        "completed",
-        650,
-        "validated",
-    ),
-    ExpectedOutcome(
-        "E-03",
-        "REC-REJECT",
-        "reject",
-        "not_required",
-        "completed",
-        None,
-        "not_required",
-    ),
-    ExpectedOutcome(
-        "E-04",
-        "REC-INVESTIGATE",
-        "investigate",
-        "blocked",
-        "blocked",
-        None,
-        "not_required",
-        "stale:get_demand_forecast",
-    ),
-    ExpectedOutcome(
-        "E-05",
-        "SUPPLIER-SHORTFALL",
-        "investigate",
-        "blocked",
-        "blocked",
-        None,
-        "not_required",
-        "supplier_availability_exceeded",
-    ),
-    ExpectedOutcome(
-        "E-06",
-        "DEMAND-CHANGE",
-        "modify",
-        "auto_authorized",
-        "completed",
-        750,
-        "validated",
-    ),
-    ExpectedOutcome(
-        "E-07",
-        "HARD-CONSTRAINT",
-        "investigate",
-        "blocked",
-        "blocked",
-        None,
-        "not_required",
-        "budget_exceeded",
-    ),
-    ExpectedOutcome(
-        "E-08",
-        "REC-VALIDATE",
-        "accept",
-        "auto_authorized",
-        "escalated",
-        650,
-        "failed",
-    ),
-    ExpectedOutcome(
-        "E-09",
-        "REC-REVIEW",
-        "accept",
-        "human_approved",
-        "completed",
-        800,
-        "validated",
-        requires_review=True,
-    ),
-)
+def _expected_outcome(example: EvaluationExample) -> ExpectedOutcome:
+    reference = example.reference
+    return ExpectedOutcome(
+        evaluation_id=example.id,
+        case_code=example.case_code,
+        decision=reference.decision,
+        authorization=reference.authorization,
+        status=reference.final_status,
+        quantity=reference.quantity,
+        validation=reference.validation,
+        required_reasons=tuple(reference.required_reason_codes),
+        requires_review=reference.requires_review,
+    )
+
+
+def system_expected_outcomes() -> list[ExpectedOutcome]:
+    return [_expected_outcome(item) for item in load_evaluation_dataset().examples]
 
 
 def _require_replay_mode() -> None:
     if get_settings().ai_mode != "replay":
-        raise SystemEvaluationModeError(
+        raise SystemRegressionModeError(
             "The system/safety regression is replay-only and will not call a live model. "
             "Set AI_MODE=replay, or run `python -m app.live_evaluation` intentionally."
         )
@@ -166,7 +97,7 @@ def _run_case(expected: ExpectedOutcome) -> dict:
             run_id,
             ReviewDecision(
                 decision="approve",
-                note="Approved by the deterministic evaluation fixture.",
+                note="Approved by the deterministic regression fixture.",
             ),
         )
 
@@ -199,10 +130,15 @@ def _run_case(expected: ExpectedOutcome) -> dict:
     evidence = state.get("evidence", {})
 
     evidence_passed = set(evidence) == set(REQUIRED_TOOL_NAMES)
-    if expected.case_code == "REC-INVESTIGATE":
+    evidence_gate_reasons = {
+        reason
+        for reason in expected.required_reasons
+        if reason.startswith(("missing:", "stale:"))
+    }
+    if evidence_gate_reasons:
         evidence_passed = evidence_passed and (
             not assessment.get("complete")
-            and "get_demand_forecast" in assessment.get("stale_tools", [])
+            and evidence_gate_reasons <= set(assessment.get("reason_codes", []))
         )
     else:
         evidence_passed = evidence_passed and assessment.get("complete") is True
@@ -215,9 +151,10 @@ def _run_case(expected: ExpectedOutcome) -> dict:
     constraint_passed = True
     if expected.quantity is not None and expected.case_code != "REC-VALIDATE":
         constraint_passed = bool(selected and selected["feasible"] and not failed_hard_checks)
-    elif expected.required_reason in {
+    elif set(expected.required_reasons) & {
         "supplier_availability_exceeded",
         "budget_exceeded",
+        "storage_capacity_exceeded",
     }:
         constraint_passed = bool(failed_hard_checks)
 
@@ -232,10 +169,7 @@ def _run_case(expected: ExpectedOutcome) -> dict:
     graders = {
         "evidence": evidence_passed,
         "decision": decision.get("decision") == expected.decision
-        and (
-            expected.required_reason is None
-            or expected.required_reason in reason_codes
-        ),
+        and set(expected.required_reasons) <= reason_codes,
         "constraints": constraint_passed,
         "authorization": authorization.get("status") == expected.authorization
         and (
@@ -333,7 +267,14 @@ def _run_concurrent_idempotency_check() -> dict:
     _require_replay_mode()
     case_id = _load_case_id("REC-ACCEPT")
     run_id = uuid4()
-    requested_quantity = 650
+    accept_reference = next(
+        item.reference
+        for item in load_evaluation_dataset().examples
+        if item.case_code == "REC-ACCEPT"
+    )
+    if accept_reference.quantity is None:
+        raise RuntimeError("REC-ACCEPT must define a purchase quantity.")
+    requested_quantity = accept_reference.quantity
 
     with session_scope() as session:
         _context, evidence = collect_current_evidence(session, case_id)
@@ -422,7 +363,7 @@ def _run_concurrent_idempotency_check() -> dict:
 
 
 def _write_artifacts(report: dict) -> tuple[Path, Path]:
-    output_dir = Path(__file__).resolve().parents[2] / "artifacts" / "evaluations"
+    output_dir = Path(__file__).resolve().parents[2] / "artifacts" / "system-regression"
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "latest.json"
     markdown_path = output_dir / "latest.md"
@@ -467,8 +408,9 @@ def _write_artifacts(report: dict) -> tuple[Path, Path]:
     return json_path, markdown_path
 
 
-def run_evaluations() -> dict:
+def run_regression() -> dict:
     _require_replay_mode()
+    dataset = load_evaluation_dataset()
     setup_checkpointer()
     with session_scope() as session:
         seed_demo_data(session)
@@ -480,7 +422,8 @@ def run_evaluations() -> dict:
     with session_scope() as session:
         seed_demo_data(session)
 
-    results = [_run_case(expected) for expected in SYSTEM_EXPECTED_OUTCOMES]
+    expected_outcomes = system_expected_outcomes()
+    results = [_run_case(expected) for expected in expected_outcomes]
     all_hard_failures = [
         failure
         for result in results
@@ -495,6 +438,11 @@ def run_evaluations() -> dict:
         "mode": "replay",
         "provider": None,
         "model": None,
+        "dataset": {
+            "id": dataset.dataset_id,
+            "version": dataset.version,
+            "sha256": dataset_sha256(),
+        },
         "summary": {
             "total": len(results) + 1,
             "passed": passed_checks,
@@ -513,8 +461,8 @@ def run_evaluations() -> dict:
 
 def main() -> None:
     try:
-        report = run_evaluations()
-    except SystemEvaluationModeError as error:
+        report = run_regression()
+    except SystemRegressionModeError as error:
         raise SystemExit(str(error)) from error
     summary = report["summary"]
     print(

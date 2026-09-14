@@ -74,6 +74,7 @@ class CaseContext(StrictModel):
     node_id: str
     node_name: str
     supplier_id: str
+    supplier_name: str
     recommended_quantity: int = Field(gt=0)
     simulator_mode: str
     review_period_days: int = Field(gt=0)

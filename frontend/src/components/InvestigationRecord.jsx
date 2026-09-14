@@ -10,49 +10,52 @@ function attemptsFor(run) {
 
 export function InvestigationRecord({ run }) {
   const attempts = attemptsFor(run);
+  const evidenceByTool = new Map((run?.evidence ?? []).map((record) => [record.tool_name, record]));
+  const unavailableTools = new Set(run?.evidence_assessment?.missing_tools ?? []);
+
+  if (!attempts.length) {
+    return <p className="empty-copy">The evidence plan appears after the agent runs.</p>;
+  }
 
   return (
-    <section className="investigation-record" aria-labelledby="investigation-heading">
-      <header className="investigation-record__heading">
-        <div>
-          <p>Agent Reasoning Boundary</p>
-          <h2 id="investigation-heading">Evidence Investigation</h2>
+    <div className="investigation-attempts">
+      {attempts.map((attempt) => (
+        <div className="investigation-attempt" key={attempt.attempt}>
+          <div className="investigation-attempt__summary">
+            <span>Investigation pass {attempt.attempt}</span>
+            <p>{attempt.plan.summary}</p>
+            {attempt.missing_sources_before?.length ? (
+              <small>
+                Retried missing source: {attempt.missing_sources_before.map(formatLabel).join(", ")}
+              </small>
+            ) : null}
+          </div>
+          <ol className="source-list">
+            {attempt.plan.tool_requests.map((request) => (
+              <li key={request.tool_name}>
+                <div className="source-list__heading">
+                  <strong>{formatLabel(request.tool_name)}</strong>
+                  {evidenceByTool.has(request.tool_name) ? (
+                    <span>
+                      {evidenceByTool.get(request.tool_name)?.is_fresh
+                        ? "SQL data retrieved"
+                        : "SQL data retrieved · stale"}
+                    </span>
+                  ) : unavailableTools.has(request.tool_name) ? (
+                    <span className="source-list__unavailable">
+                      SQL query ran · data unavailable
+                    </span>
+                  ) : (
+                    <span>Not retrieved</span>
+                  )}
+                </div>
+                <p>{request.purpose}</p>
+                <small>{request.questions.join(" · ")}</small>
+              </li>
+            ))}
+          </ol>
         </div>
-        <p>
-          {run?.mode === "live"
-            ? "The model chooses evidence sources and states what each source must answer."
-            : "Replay uses the required evidence set to verify deterministic safety behavior."}
-        </p>
-      </header>
-
-      {attempts.length ? (
-        <div className="investigation-attempts">
-          {attempts.map((attempt) => (
-            <article className="investigation-attempt" key={attempt.attempt}>
-              <div className="investigation-attempt__summary">
-                <span>Planning Pass {attempt.attempt}</span>
-                <strong>{attempt.plan.summary}</strong>
-                {attempt.missing_sources_before?.length ? (
-                  <p>Closed gaps: {attempt.missing_sources_before.map(formatLabel).join(", ")}</p>
-                ) : null}
-              </div>
-              <ol>
-                {attempt.plan.tool_requests.map((request) => (
-                  <li key={request.tool_name}>
-                    <strong>{formatLabel(request.tool_name)}</strong>
-                    <p>{request.purpose}</p>
-                    <small>{request.questions.join(" · ")}</small>
-                  </li>
-                ))}
-              </ol>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="investigation-empty">
-          Run the buyer agent to see which evidence it chooses and why.
-        </p>
-      )}
-    </section>
+      ))}
+    </div>
   );
 }

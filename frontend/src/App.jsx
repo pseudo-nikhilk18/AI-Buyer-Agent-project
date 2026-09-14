@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
 
 import { getCase, getCases, reviewRun, runCase } from "./api";
-import { CaseQueue } from "./components/CaseQueue";
 import { EvidenceLedger } from "./components/EvidenceLedger";
 import { InventoryProjection } from "./components/InventoryProjection";
-import { InvestigationRecord } from "./components/InvestigationRecord";
 import { PolicyChecks } from "./components/PolicyChecks";
 import { RunOutcome } from "./components/RunOutcome";
 import { Status } from "./components/Status";
-import { SystemOverview } from "./components/SystemOverview";
+import { TestSuite } from "./components/TestSuite";
 import { WorkflowTimeline } from "./components/WorkflowTimeline";
 import { formatLabel } from "./lib/format";
-import { getScenarioPresentation } from "./lib/scenarios";
 
 function syncCaseUrl(caseId) {
   const url = new URL(window.location.href);
@@ -25,23 +22,24 @@ function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [pageState, setPageState] = useState("loading");
-  const [busy, setBusy] = useState(false);
+  const [busyCaseId, setBusyCaseId] = useState(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function loadWorkspace() {
+    async function loadTests() {
       try {
         const caseList = await getCases(controller.signal);
-        const requestedCaseId = new URLSearchParams(window.location.search).get("case");
-        const firstCase = caseList.find((item) => item.id === requestedCaseId) ?? caseList[0];
-        const firstDetail = firstCase ? await getCase(firstCase.id, controller.signal) : null;
+        const requestedId = new URLSearchParams(window.location.search).get("case");
+        const requested = caseList.find((item) => item.id === requestedId);
+        const requestedDetail = requested ? await getCase(requested.id, controller.signal) : null;
         setCases(caseList);
-        setSelectedId(firstCase?.id ?? null);
-        setDetail(firstDetail);
+        setSelectedId(requested?.id ?? null);
+        setDetail(requestedDetail);
+        if (!requested) syncCaseUrl(null);
         setPageState("ready");
-        syncCaseUrl(firstCase?.id);
       } catch (loadError) {
         if (loadError.name === "AbortError") return;
         setError(loadError.message);
@@ -49,30 +47,9 @@ function App() {
       }
     }
 
-    loadWorkspace();
+    loadTests();
     return () => controller.abort();
   }, []);
-
-  async function handleSelect(caseId, force = false) {
-    if ((!force && caseId === selectedId) || busy) return;
-
-    setBusy(true);
-    setSelectedId(caseId);
-    syncCaseUrl(caseId);
-    setDetail(null);
-    setError("");
-    setPageState("loading");
-    try {
-      const nextDetail = await getCase(caseId);
-      setDetail(nextDetail);
-      setPageState("ready");
-    } catch (loadError) {
-      setError(loadError.message);
-      setPageState("error");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function refreshCase(caseId) {
     const [nextCases, nextDetail] = await Promise.all([getCases(), getCase(caseId)]);
@@ -80,26 +57,48 @@ function App() {
     setDetail(nextDetail);
   }
 
-  async function handleRun() {
-    if (!detail) return;
-
-    setBusy(true);
+  async function handleView(caseId) {
+    if (busyCaseId) return;
+    setBusyCaseId(caseId);
+    setSelectedId(caseId);
+    setDetail(null);
     setError("");
+    syncCaseUrl(caseId);
     try {
-      await runCase(detail.id);
-      await refreshCase(detail.id);
+      setDetail(await getCase(caseId));
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setBusyCaseId(null);
+    }
+  }
+
+  async function handleRun(item) {
+    if (busyCaseId) return;
+    setBusyCaseId(item.id);
+    setSelectedId(item.id);
+    setDetail(null);
+    setError("");
+    syncCaseUrl(item.id);
+    try {
+      await runCase(item.id);
+      await refreshCase(item.id);
     } catch (runError) {
       setError(runError.message);
+      try {
+        setDetail(await getCase(item.id));
+      } catch {
+        setDetail(null);
+      }
     } finally {
-      setBusy(false);
+      setBusyCaseId(null);
     }
   }
 
   async function handleReview(decision, note) {
     const run = detail?.latest_run;
     if (!run) return;
-
-    setBusy(true);
+    setReviewBusy(true);
     setError("");
     try {
       await reviewRun(run.id, decision, note);
@@ -107,179 +106,139 @@ function App() {
     } catch (reviewError) {
       setError(reviewError.message);
     } finally {
-      setBusy(false);
+      setReviewBusy(false);
     }
   }
 
   const run = detail?.latest_run;
-  const scenario = detail ? getScenarioPresentation(detail) : null;
-  const isAwaitingReview = run?.status === "awaiting_review";
 
   return (
-    <div className="min-h-screen bg-canvas text-ink">
+    <div className="app-frame">
       <a className="skip-link" href="#main-content">
-        Skip to buyer-agent decision
+        Skip to agent tests
       </a>
       <header className="app-header">
         <div className="app-header__inner">
           <a className="brand" href="/">
             Buyer Agent
           </a>
-          <p>Purchasing decision control</p>
-          {run?.mode ? <span className="mode-mark">{formatLabel(run.mode)} mode</span> : null}
+          <span>AI purchasing decisions with verified actions</span>
+          {run?.mode ? <span className="mode-mark">{formatLabel(run.mode)} run</span> : null}
         </div>
       </header>
+
       <p className="sr-only" aria-live="polite">
-        {busy ? "Updating the selected demo scenario…" : error}
+        {busyCaseId ? "The purchasing agent is running a test." : error}
       </p>
 
-      {pageState === "loading" && cases.length === 0 ? (
-        <main className="workspace-state" id="main-content" aria-live="polite">
-          <span className="loading-rule" aria-hidden="true" />
-          <h1>Loading Demo Scenarios…</h1>
-          <p>Connecting to the decision API and current evidence.</p>
-        </main>
-      ) : null}
+      <main className="evaluation-shell" id="main-content">
+        {pageState === "loading" ? (
+          <section className="page-state" aria-live="polite">
+            <span className="loading-rule" aria-hidden="true" />
+            <h1>Loading agent tests…</h1>
+            <p>Connecting to the API and PostgreSQL dataset.</p>
+          </section>
+        ) : null}
 
-      {pageState === "error" && cases.length === 0 ? (
-        <main className="workspace-state" id="main-content" role="alert">
-          <h1>The Buyer Workspace Could Not Load</h1>
-          <p>{error}</p>
-          <button
-            className="button button--primary"
-            onClick={() => window.location.reload()}
-            type="button"
-          >
-            Try Again
-          </button>
-        </main>
-      ) : null}
+        {pageState === "error" ? (
+          <section className="page-state" role="alert">
+            <h1>Agent tests could not load</h1>
+            <p>{error}</p>
+            <button
+              className="button button--primary"
+              onClick={() => location.reload()}
+              type="button"
+            >
+              Try again
+            </button>
+          </section>
+        ) : null}
 
-      {pageState === "ready" && cases.length === 0 ? (
-        <main className="workspace-state" id="main-content">
-          <h1>No Demo Scenarios Are Available</h1>
-          <p>Seed the backend data, then reload this workspace.</p>
-        </main>
-      ) : null}
+        {pageState === "ready" && cases.length === 0 ? (
+          <section className="page-state">
+            <h1>No tests are available</h1>
+            <p>Run the backend seed command, then reload this page.</p>
+          </section>
+        ) : null}
 
-      {cases.length > 0 ? (
-        <main id="main-content">
-          <SystemOverview />
-          <div className="workspace">
-            <CaseQueue busy={busy} cases={cases} onSelect={handleSelect} selectedId={selectedId} />
+        {pageState === "ready" && cases.length > 0 ? (
+          <>
+            <TestSuite
+              busyCaseId={busyCaseId}
+              cases={cases}
+              onRun={handleRun}
+              onView={handleView}
+              selectedId={selectedId}
+            />
 
-            <div className="decision-sheet" aria-busy={pageState === "loading" || busy}>
-              {detail ? (
-                <>
-                  <section className="case-heading">
-                    <div className="case-heading__title">
-                      <p className="case-heading__label">Selected Demo Scenario</p>
-                      <h2>{scenario.label}</h2>
-                      <p className="case-heading__context">
-                        {detail.product_name} · {detail.node_name}
-                      </p>
-                      <p className="case-heading__id">
-                        Demo ID {detail.code} · SKU {detail.sku}
-                      </p>
-                    </div>
-                    <div className="case-heading__action">
-                      <Status value={run?.status ?? detail.status} />
-                      <button
-                        className="button button--primary"
-                        disabled={busy || isAwaitingReview}
-                        onClick={handleRun}
-                        type="button"
-                      >
-                        {busy
-                          ? "Buyer Agent Running…"
-                          : isAwaitingReview
-                            ? "Buyer Decision Required"
-                            : run
-                              ? "Run Again with Current Evidence"
-                              : "Run Buyer Agent"}
-                      </button>
-                    </div>
-                    <dl className="scenario-brief">
-                      <div>
-                        <dt>What Changed</dt>
-                        <dd>{scenario.changed}</dd>
-                      </div>
-                      <div>
-                        <dt>What the Agent Must Protect</dt>
-                        <dd>{scenario.protects}</dd>
-                      </div>
-                    </dl>
-                  </section>
+            {error ? (
+              <div className="error-banner" role="alert">
+                {error}
+              </div>
+            ) : null}
 
-                  {error ? (
-                    <div className="error-banner" role="alert">
-                      {error}
-                    </div>
-                  ) : null}
-
-                  <RunOutcome busy={busy} detail={detail} onReview={handleReview} run={run} />
-                  <InvestigationRecord run={run} />
-
-                  <section className="supporting-proof" aria-labelledby="supporting-proof-heading">
-                    <div className="supporting-proof__heading">
-                      <h2 id="supporting-proof-heading">Supporting Evidence</h2>
-                      <p>
-                        Open these records to inspect how the agent reached and verified its
-                        decision.
-                      </p>
-                    </div>
-                    <details>
-                      <summary>
-                        <span>Evidence and Inventory Projection</span>
-                        <small>Source freshness, demand, supply, and stock path</small>
-                      </summary>
-                      <div className="supporting-proof__content">
-                        <EvidenceLedger detail={detail} run={run} />
-                        <InventoryProjection candidate={run?.selected_candidate} />
-                      </div>
-                    </details>
-                    <details>
-                      <summary>
-                        <span>Safety Policy Checks</span>
-                        <small>Hard constraints and authorization boundaries</small>
-                      </summary>
-                      <div className="supporting-proof__content">
-                        <PolicyChecks checks={run?.analysis?.policy_checks} />
-                      </div>
-                    </details>
-                    <details>
-                      <summary>
-                        <span>Technical Workflow Trace</span>
-                        <small>The nodes completed during this agent run</small>
-                      </summary>
-                      <div className="supporting-proof__content">
-                        <WorkflowTimeline run={run} />
-                      </div>
-                    </details>
-                  </section>
-                </>
-              ) : error ? (
-                <div className="sheet-error" role="alert">
-                  <h2>This Purchasing Scenario Could Not Load</h2>
-                  <p>{error}</p>
-                  <button
-                    className="button button--primary"
-                    onClick={() => handleSelect(selectedId, true)}
-                    type="button"
-                  >
-                    Try This Scenario Again
-                  </button>
+            {busyCaseId && !detail ? (
+              <section className="running-panel" aria-live="polite">
+                <span className="loading-rule" aria-hidden="true" />
+                <div>
+                  <h2>Agent is investigating the purchasing situation</h2>
+                  <p>
+                    It is selecting evidence, comparing quantities, and checking whether an action
+                    is safe.
+                  </p>
                 </div>
-              ) : (
-                <div className="sheet-loading" aria-live="polite">
-                  <span className="loading-rule" aria-hidden="true" />
-                  Loading Scenario Evidence…
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
-      ) : null}
+              </section>
+            ) : null}
+
+            {detail ? (
+              <article className="test-result" aria-labelledby="test-result-heading">
+                <header className="test-result__header">
+                  <div>
+                    <p className="eyebrow">Test result · {detail.code}</p>
+                    <h1 id="test-result-heading">{detail.title}</h1>
+                    <p>{detail.test_purpose}</p>
+                  </div>
+                  <div className="test-result__actions">
+                    <Status value={run?.status ?? detail.status} />
+                    {run ? (
+                      <span className="run-engine">
+                        {run.mode === "live"
+                          ? `Live AI · ${formatLabel(run.provider)} · ${run.model}`
+                          : "Engineering replay · no AI model"}
+                      </span>
+                    ) : null}
+                    <button
+                      className="button button--quiet"
+                      disabled={Boolean(busyCaseId) || reviewBusy}
+                      onClick={() => handleRun(detail)}
+                      type="button"
+                    >
+                      Run this test again
+                    </button>
+                  </div>
+                </header>
+
+                <RunOutcome busy={reviewBusy} detail={detail} onReview={handleReview} run={run} />
+
+                <details className="technical-details">
+                  <summary>
+                    <span>Technical details</span>
+                    <small>
+                      Evidence records, purchasing rules, inventory projection, and graph trace
+                    </small>
+                  </summary>
+                  <div className="technical-details__content">
+                    <EvidenceLedger detail={detail} run={run} />
+                    <PolicyChecks checks={run?.analysis?.policy_checks} />
+                    <InventoryProjection candidate={run?.selected_candidate} />
+                    <WorkflowTimeline run={run} />
+                  </div>
+                </details>
+              </article>
+            ) : null}
+          </>
+        ) : null}
+      </main>
     </div>
   );
 }

@@ -4,7 +4,7 @@ Status: Active; purchase recommendation review is the supported end-to-end workf
 
 Source: original project brief in `AI Buyer Agent project.pdf`
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 
 ## 1. Product goal
 
@@ -20,9 +20,9 @@ A retail or quick-commerce buyer responsible for replenishment across products, 
 
 Purchase recommendation review is implemented end to end. The agent receives a recommendation, investigates it, and returns `accept`, `modify`, `reject`, or `investigate`. Authorized purchase actions are executed and independently validated.
 
-Six controlled variations demonstrate the same workflow: a correct recommendation, excessive quantity, no purchase required, stale evidence, human approval, and an incorrect persisted outcome.
+Six controlled variations demonstrate the workflow in the UI: a correct recommendation, excessive quantity, no purchase required, stale evidence, human approval, and an incorrect persisted outcome.
 
-Supplier shortfall, demand change, and purchasing constraints remain useful evaluation probes and architectural extensions. They are not presented as complete product capabilities until their source events, evidence, decisions, and actions are modelled end to end.
+The complete evaluation dataset adds supplier shortfall, demand change, insufficient budget, missing evidence, adversarial catalog text, and different commercial entities. These remain focused robustness probes rather than separate product workflows.
 
 ## 4. Operating workflow
 
@@ -129,7 +129,7 @@ The system preserves the event, tool calls, evidence, policy results, decision, 
 
 ### FR-7 — Buyer workspace
 
-The interface first explains the company buyer, supplier, fulfillment node, and one purchasing workflow. It then presents grouped demo scenarios and shows the AI proposal, safety decision, evidence, authorization, action, and validation without resembling a chat transcript or unexplained work queue.
+The interface opens with six plain-language agent tests. Running or viewing a test shows the purchasing situation, information investigated, agent decision, action taken, result validation, and the resulting feedback path in that order. The investigation must show that the AI selected approved tools and whether each SQL-backed tool returned data. Business language is primary; evidence records, purchasing-rule internals, inventory projection, and graph trace stay in optional technical details.
 
 ### FR-8 — Provider configuration
 
@@ -140,7 +140,7 @@ The agent supports Gemini, OpenAI, and Anthropic through a provider-neutral adap
 - Reliable: explicit states, idempotent writes, bounded retries, and no fake success.
 - Explainable: every decision links to concrete evidence and policy results.
 - Safe: secrets remain outside source control and no action bypasses authorization.
-- Evaluatable: blinded live-agent evaluation measures model behavior, while deterministic graders separately verify evidence, constraints, actions, validation, and recovery.
+- Evaluatable: a versioned dataset and blinded live-agent experiment measure tool trajectory, raw decisions, grounding, outcomes, safety, and repeated-run stability; a separate deterministic regression verifies the control system.
 - Maintainable: UI, agent orchestration, domain policy, persistence, and integrations remain separate.
 - Accessible: the complete buyer workflow is usable with keyboard and assistive technology.
 - Repeatable: Docker provides a documented local environment and seeded reset path.
@@ -157,7 +157,7 @@ The completed product must let a reviewer:
 - observe both automatic authorization and human review;
 - see an authorized purchase-order action change persisted state;
 - see the validator catch a deliberately incorrect outcome; and
-- run an evaluation command that produces a scored, inspectable report.
+- run quick, full, focused, and repeated evaluation experiments that produce scored, inspectable reports.
 
 All hard safety graders in `docs/evaluation.md` must pass.
 
