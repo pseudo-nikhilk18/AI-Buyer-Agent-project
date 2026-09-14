@@ -3,8 +3,16 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app import models
 from app.config import get_settings
 from app.database import Base
+
+LANGGRAPH_TABLES = {
+    "checkpoint_blobs",
+    "checkpoint_migrations",
+    "checkpoint_writes",
+    "checkpoints",
+}
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
@@ -15,12 +23,17 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def include_name(name: str | None, object_type: str, parent_names: dict) -> bool:
+    return not (object_type == "table" and name in LANGGRAPH_TABLES)
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=config.get_main_option("sqlalchemy.url"),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_name=include_name,
     )
 
     with context.begin_transaction():
@@ -35,7 +48,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_name=include_name,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

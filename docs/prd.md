@@ -1,6 +1,6 @@
 # Product Requirements: AI Purchasing Agent
 
-Status: Finalized product requirements; implementation is underway.
+Status: Finalized product requirements; purchasing backend implemented and evaluated.
 
 Source: original project brief in `AI Buyer Agent project.pdf`
 
@@ -54,6 +54,8 @@ The LLM may:
 
 The LLM may not bypass data validation, purchasing rules, authorization, or post-action validation. Deterministic Python services are authoritative for calculations, constraints, and executable actions.
 
+Decision priority is loss-bounded: satisfy hard constraints, protect demand and safety stock, then choose the smallest feasible quantity and spend. Missing or stale evidence lowers authority and cannot be converted into a confident action.
+
 ## 6. Decision contract
 
 Every run returns a structured record containing:
@@ -65,7 +67,7 @@ Every run returns a structured record containing:
 - missing, stale, or conflicting evidence;
 - binding constraints and reason codes;
 - proposed action and expected resulting state;
-- `authorization`: `auto_authorized`, `human_review`, or `blocked`;
+- `authorization`: `auto_authorized`, `human_review`, `human_approved`, `blocked`, `rejected`, or `not_required`;
 - action status; and
 - `validation`: `not_required`, `pending`, `validated`, `failed`, `replanning`, or `escalated`.
 
@@ -74,13 +76,12 @@ The product must not present an uncalibrated LLM confidence score as evidence. I
 ## 7. Required evidence and tools
 
 - Sellable, reserved, and damaged inventory by product and node.
-- Expected demand, horizon, recent sales behavior, and forecast timestamp.
+- Expected demand, horizon, and forecast timestamp.
 - Open purchase orders, quantities, statuses, and expected arrival dates.
 - Supplier lead time, minimum order quantity, case pack, price, availability, reliability, and active status.
 - Remaining purchasing budget and committed spend.
 - Available storage capacity and per-unit storage requirement.
 - Safety-stock policy, authority policy, and permitted data-age thresholds.
-- Alternate suppliers when the current supplier cannot meet the need.
 
 Seeded data must be explicit, inspectable, deterministic, and realistic enough to produce genuine trade-offs.
 
@@ -121,7 +122,7 @@ The system records why an action was automatically authorized, blocked, or route
 
 ### FR-4 — Act
 
-The system creates, amends, or cancels a simulated purchase order only after authorization and records every attempt under the case trace.
+The system creates a simulated purchase order only after authorization and records every acknowledged, repeated, or invalidated attempt under the case trace.
 
 ### FR-5 — Validate and recover
 
@@ -165,12 +166,14 @@ The completed product must let a reviewer:
 
 All hard safety graders in `docs/evaluation.md` must pass.
 
-## 13. Policy values to set with seed data
+## 13. Seeded policy
 
-The architecture is fixed, but these business values remain explicit configuration rather than silent assumptions:
+The inspectable demonstration policy uses:
 
-- forecast and operational-data freshness windows;
-- lead-time review horizon and safety-stock policy;
-- automatic spend and quantity authority limits;
-- what constitutes a material purchase-order amendment; and
-- retry limits and compensatable action types.
+- a 7-day review period plus supplier lead time;
+- 2 days of forecast demand as safety stock;
+- freshness limits of 15 minutes for inventory and constraints, 24 hours for forecasts, and 60 minutes for supplier evidence;
+- an automatic spend limit of INR 60,000; and
+- one bounded replan when evidence changes before execution.
+
+These are demonstration inputs stored in PostgreSQL, not universal purchasing rules.

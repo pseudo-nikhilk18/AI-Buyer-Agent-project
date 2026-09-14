@@ -12,6 +12,7 @@ This file applies to the whole repository. It records the working standards for 
 - Never silently decide a material product, UX, architecture, data, technology, or scope question. Bring it to the project owner with a recommendation, reasoning, and trade-offs before acting.
 - Mechanical, reversible implementation choices are allowed only inside an agreed direction; surface any choice that could reasonably affect later work.
 - Treat examples and exploratory comments as context, not approved requirements. Confirm before promoting them into product scope, architecture, or evaluation criteria.
+- Treat accepted scope and recorded decisions as binding. Do not reopen or expand them during implementation; surface a genuine conflict before changing direction.
 - Derive recommendations from the problem and evidence. Do not mirror a technology or idea merely because the project owner mentioned prior experience with it.
 - Lead updates with outcomes. Avoid bloated status reports or documentation.
 - Match communication to an experienced technical collaborator. Do not repeat established context, re-explain basics, or pad responses; recap only when materially useful or requested.
@@ -50,6 +51,7 @@ A feature is done when its evaluation proves the intended decision, evidence gat
 ## Engineering guardrails
 
 - Treat LLM output as untrusted input. Use typed schemas and deterministic business-rule checks.
+- Target zero preventable loss introduced by AI. Automatic action must be at least as safe as the validated baseline under conservative evidence; uncertainty reduces authority rather than increasing risk.
 - Do not assume blanket human approval or blanket autonomy. Execute purchasing mutations only under the agreed authorization policy, and route uncertain or high-risk actions to human review.
 - After an action, read back the resulting state and validate it independently. Never report success from an API acknowledgement alone.
 - Keep domain logic separate from UI, LLM prompts, and data access so it is independently verifiable.
@@ -60,6 +62,7 @@ A feature is done when its evaluation proves the intended decision, evidence gat
 - Start Vite and FastAPI separately and configure the browser-facing API URL through `VITE_API_BASE_URL`. Add a development proxy only if an agreed requirement needs one.
 - When available, use `frontend-design` for visual direction, `vercel-react-best-practices` while building React, `web-design-guidelines` for UI audits, and `security-best-practices` for secure-by-default implementation.
 - Preserve Git history and existing user changes. Keep commits focused and independently understandable.
+- Commit and push each cohesive milestone after its implementation, verification, and affected documentation are complete. Do not commit known-broken intermediate states.
 - Use Conventional Commits: `<type>[optional scope]: <imperative description>`. Choose the type by intent: `feat` for capability, `fix` for a real defect, `docs` for documentation only, `test` for evaluations or tests, `refactor` for behavior-preserving structure, and `chore` for maintenance. Use a short, stable scope only when it adds clarity.
 
 ## Capability sequence

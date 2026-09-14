@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Active; the runtime foundation is implemented and purchasing capabilities are next.
+Status: Active; the purchasing backend is implemented and evaluated.
 
 Last updated: 2026-09-14
 
@@ -8,154 +8,120 @@ Last updated: 2026-09-14
 
 ```mermaid
 flowchart LR
-    Buyer[Buyer] --> Web[React buyer workspace]
-    Web --> API[FastAPI application]
-    API --> Graph[LangGraph purchasing workflow]
-
-    Graph --> LLM[Provider-neutral LLM adapter]
-    LLM --> Gemini[Gemini]
-    LLM --> OpenAI[OpenAI]
-    LLM --> Anthropic[Anthropic]
-
-    Graph --> Tools[Purchasing tools]
-    Tools --> Domain[Deterministic domain services]
-    Domain --> DB[(PostgreSQL)]
-
-    Graph --> Authz[Risk-based authorization]
-    Authz -->|Auto-authorized| Action[PO action service]
-    Authz -->|Review required| API
-    API -->|Human decision| Graph
-    Authz -->|Blocked| API
-
-    Action --> Simulator[Purchasing-system simulator]
-    Action --> Validator[Outcome validator]
-    Validator --> Simulator
-    Validator --> DB
-    Validator -->|Replan| Graph
-    Validator --> API
+    Buyer[Buyer] --> Web[React workspace]
+    Web --> API[FastAPI]
+    API --> Graph[LangGraph workflow]
+    Graph --> LLM[Configurable LLM adapter]
+    Graph --> Tools[Typed evidence tools]
+    Tools --> DB[(PostgreSQL)]
+    Graph --> Policy[Deterministic purchasing policy]
+    Graph --> Auth[Authorization gate]
+    Auth -->|Within authority| Action[PO action service]
+    Auth -->|Review required| Buyer
+    Action --> Simulator[Purchasing simulator]
+    Simulator --> DB
+    Action --> Validator[Read-back validator]
+    Validator -->|Changed evidence| Graph
+    Validator -->|Mismatch| Escalate[Escalation]
 ```
 
-The LLM investigates and proposes. Deterministic services decide feasibility and authorization. The action service is the only component permitted to mutate purchasing state, and the validator independently decides whether the action succeeded.
+The LLM investigates and proposes. Deterministic code controls calculations, hard constraints, authority, database mutations, and success validation.
 
-## Technology stack
+## Technology
 
 | Area | Choice |
 | --- | --- |
-| Web application | React JavaScript, Vite, Tailwind CSS |
+| Web | React JavaScript, Vite, Tailwind CSS |
 | API and domain | Python, FastAPI, Pydantic |
 | Agent orchestration | LangGraph |
-| LLM providers | Gemini, OpenAI, Anthropic through adapters |
+| LLM adapters | Gemini, OpenAI, Anthropic |
 | Persistence | PostgreSQL, SQLAlchemy, Alembic |
 | Graph checkpoints | PostgreSQL LangGraph checkpointer |
-| Evaluation | Python evaluation runner with deterministic graders |
-| Development runtime | Native Vite and FastAPI processes with local PostgreSQL |
+| Evaluation | Python runner with deterministic graders |
+| Local runtime | Separate Vite and FastAPI processes with local PostgreSQL |
 | Reviewer runtime | Docker Compose |
-| Continuous checks | GitHub Actions, ESLint, Prettier |
 
-Dependencies are pinned in `backend/requirements.txt` and `frontend/package-lock.json`. Model names are configuration, not architecture.
+Dependencies are pinned. Provider model names remain environment configuration.
 
-## Purchasing graph
-
-The graph uses one state model for every purchasing event:
+## Purchasing workflow
 
 ```text
-ingest_case
-  -> gather_evidence
-  -> assess_evidence
-  -> calculate_requirement
-  -> propose_plan
-  -> validate_plan
-  -> authorize_action
-       -> execute_action
-       -> wait_for_human
-       -> close_blocked
-  -> validate_outcome
-       -> complete
-       -> replan
-       -> escalate
+plan investigation
+  -> gather typed evidence
+  -> check completeness and freshness
+       -> incomplete: investigate and block
+       -> complete: calculate time-phased candidates
+  -> propose accept / modify / reject / investigate
+  -> validate proposal against deterministic policy
+  -> authorize
+       -> within authority: execute
+       -> above authority: pause for buyer review
+       -> blocked or rejected: finish without mutation
+  -> lock and recheck mutable evidence
+       -> changed: replan once
+       -> valid: create PO idempotently
+  -> read persisted PO back
+       -> exact match: complete
+       -> mismatch: escalate
 ```
 
-LangGraph owns state transitions, checkpointing, retries, and resume behavior. It does not contain purchasing formulas or database queries.
+LangGraph owns transitions, PostgreSQL checkpoints, pause/resume, and bounded replanning. Purchasing formulas remain ordinary Python functions.
 
-## Component responsibilities
+## Backend structure
 
-| Component | Responsibility |
-| --- | --- |
-| Buyer workspace | Show cases, evidence, calculations, decisions, authorization, action, and validation. Collect human input only when requested. |
-| FastAPI application | Validate HTTP boundaries, start/resume runs, return case state, and expose evaluation reports. |
-| Purchasing graph | Coordinate investigation, planning, authorization, action, validation, replanning, and escalation. |
-| LLM adapter | Normalize provider configuration, tool binding, messages, and structured output. |
-| Purchasing tools | Retrieve inventory, forecast, open POs, supplier terms, alternatives, budget, and capacity. |
-| Domain services | Calculate need and enforce freshness, quantity, supplier, budget, storage, timing, and authorization rules. |
-| Action service | Execute idempotent create/amend/cancel operations against the simulator. |
-| Outcome validator | Read actual state and compare it with the authorized action and current constraints. |
-| Repositories | Isolate SQLAlchemy persistence from domain and graph code. |
-| Purchasing simulator | Behave like an external system and support deterministic success and failure modes. |
+```text
+backend/app/
+├── agent/
+│   ├── graph.py          graph assembly only
+│   ├── state.py          shared workflow state
+│   ├── prompts.py        live-model instructions
+│   ├── routing.py        conditional transitions
+│   ├── provider.py       provider resolution and adapters
+│   ├── checkpoint.py     PostgreSQL checkpoint boundary
+│   └── nodes/            planning, evidence, decision, authorization, execution
+├── api/                  validated HTTP contracts
+├── domain/               evidence rules, schemas, inventory simulation, policy
+├── services/             workflow lifecycle, actions, simulator
+├── models.py             relational persistence model
+├── purchasing_tools.py   read-only business evidence tools
+├── seed.py               deterministic review and scenario cases
+└── evaluation.py         complete-case graders and reports
+```
 
-## Provider resolution
+There is one agentic workflow, not multiple LLM agents. Planning and proposal use the configured model in live mode. Other nodes are deterministic control points because separate LLMs would not improve those responsibilities.
 
-Configuration uses `LLM_PROVIDER`, `LLM_MODEL`, and the relevant provider key.
+## API
 
-- When `LLM_PROVIDER` is set, its model and key must be valid.
-- When it is omitted and exactly one supported provider key exists, that provider is selected.
-- When multiple provider keys exist without an explicit provider, startup fails with a clear configuration error rather than selecting arbitrarily.
-- `AI_MODE=live` invokes the configured provider.
-- `AI_MODE=replay` loads checked-in traces for UI inspection and is never accepted as a live evaluation result.
-
-Provider-specific imports stay inside adapters. Graph state, tool contracts, domain services, and evaluation fixtures remain provider-neutral.
-
-## API boundary
-
-The planned API surface is intentionally small:
-
+- `GET /api/health` — verify the API and database.
 - `GET /api/cases` — list purchasing cases.
-- `GET /api/cases/{case_id}` — return evidence, run state, and audit timeline.
-- `POST /api/cases/{case_id}/runs` — start or re-run an investigation.
-- `POST /api/runs/{run_id}/review` — resume a paused run with a human decision.
-- `GET /api/runs/{run_id}` — retrieve current decision, action, and validation state.
-- `GET /api/evaluations/{evaluation_id}` — retrieve an evaluation report.
+- `GET /api/cases/{case_id}` — return current evidence and the latest run.
+- `POST /api/cases/{case_id}/runs` — start an investigation.
+- `GET /api/runs/{run_id}` — retrieve a run.
+- `POST /api/runs/{run_id}/review` — approve or reject a paused exact action.
 
-The API never exposes provider keys, internal prompts, raw database errors, or hidden reasoning.
+The API exposes no provider keys, prompts, database errors, or hidden model reasoning.
 
-## Persistence model
+## Data and consistency
 
-PostgreSQL stores:
+PostgreSQL stores cases, products, nodes, suppliers, reusable supplier terms, per-case supplier availability, inventory, forecasts, inbound and created purchase orders, budget, storage capacity, agent runs, evidence, policy checks, action attempts, validation results, and LangGraph checkpoints.
 
-- purchasing cases and trigger events;
-- products, nodes, suppliers, and supplier terms;
-- inventory and capacity snapshots;
-- demand forecasts and recent sales evidence;
-- purchase orders and lines;
-- budgets and committed spend;
-- graph checkpoints and run state;
-- tool-call evidence and policy results;
-- decisions and authorizations;
-- action attempts and idempotency keys; and
-- validation and escalation results.
+- Money uses integer minor units.
+- Evidence carries observation timestamps and permitted ages.
+- Supplier availability is volatile per case; commercial terms are reusable.
+- PO, budget, storage, and supplier availability records are locked and updated in one transaction.
+- The action service rechecks current evidence after locking.
+- A unique idempotency key prevents duplicate orders; repeated attempts are still audited.
+- Success comes only from reading the persisted PO and matching it to the authorized quantity.
+- LangGraph deserialization permits no arbitrary Python modules.
 
-Structured business fields remain relational. Evidence snapshots, provider metadata, and tool traces may use JSONB where their shape is naturally variable.
+## Provider modes
 
-## Consistency and failure handling
+- `AI_MODE=live` requires `LLM_PROVIDER`, `LLM_MODEL`, and the matching provider key. If exactly one key exists, its provider can be inferred.
+- `AI_MODE=replay` runs the same graph with deterministic planning and proposal against seeded evidence; it needs no key and is labelled as non-live evaluation.
+- A paused live run resumes with its original provider and model rather than silently switching configuration.
 
-- Validate every API, tool, and LLM boundary with Pydantic schemas.
-- Represent money as integer minor units or `Decimal`, never binary floating point.
-- Record the evidence version used for each decision and recheck mutable data before execution.
-- Lock or version records involved in a purchasing mutation and update the PO, budget commitment, and capacity reservation atomically.
-- Use a unique idempotency key so a retry cannot create a duplicate order.
-- Apply bounded retry only to explicitly retryable failures.
-- Validate from persisted simulator state rather than the action response.
-- Persist every state transition under one trace ID without storing secrets or hidden model reasoning.
+## Runtime
 
-## Runtime environments
+Local development runs Vite and FastAPI separately. The browser uses `VITE_API_BASE_URL` to call FastAPI directly, and allowed local origins are explicit.
 
-During development, the Vite web process and FastAPI process run directly on macOS and connect to a local PostgreSQL service. This keeps feedback loops fast and makes each layer easy to inspect.
-
-Vite and FastAPI are started separately. The browser connects directly to FastAPI using `VITE_API_BASE_URL`; allowed local origins are explicit in API configuration.
-
-For reviewers, Docker Compose will run three services:
-
-- `web`: React/Vite application;
-- `api`: FastAPI, LangGraph, domain services, simulator, and evaluation runner; and
-- `db`: PostgreSQL with a health check and persistent development volume.
-
-The simulator stays behind an integration interface so its failure behavior is realistic without requiring an external purchasing account.
+Docker Compose will package the web, API, and PostgreSQL services for reviewer setup after the buyer workspace is complete.

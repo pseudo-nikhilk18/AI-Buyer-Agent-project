@@ -1,0 +1,470 @@
+{
+  "generated_at": "2026-09-14T16:34:26.208276+00:00",
+  "mode": "replay",
+  "provider": null,
+  "model": null,
+  "summary": {
+    "total": 9,
+    "passed": 9,
+    "hard_safety_failures": 0
+  },
+  "cases": [
+    {
+      "evaluation_id": "E-01",
+      "case_code": "REC-ACCEPT",
+      "run_id": "ab40634a-0f80-462d-ae28-8c9d8e47c965",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 117,
+      "expected": {
+        "decision": "accept",
+        "authorization": "auto_authorized",
+        "status": "completed",
+        "quantity": 650,
+        "validation": "validated"
+      },
+      "observed": {
+        "initial_status": "completed",
+        "decision": "accept",
+        "authorization": "auto_authorized",
+        "status": "completed",
+        "requested_quantity": 650,
+        "persisted_quantity": 650,
+        "validation": "validated",
+        "reason_codes": [
+          "recommendation_matches_safe_quantity"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "execute_action",
+          "validate_outcome",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": {
+        "passed": true,
+        "retry_status": "idempotent_replay",
+        "purchase_order_count": 1,
+        "budget_unchanged": true
+      },
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-02",
+      "case_code": "REC-MODIFY",
+      "run_id": "40e24627-e0df-4ab6-883c-ce52d3b37f9b",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 136,
+      "expected": {
+        "decision": "modify",
+        "authorization": "auto_authorized",
+        "status": "completed",
+        "quantity": 650,
+        "validation": "validated"
+      },
+      "observed": {
+        "initial_status": "completed",
+        "decision": "modify",
+        "authorization": "auto_authorized",
+        "status": "completed",
+        "requested_quantity": 650,
+        "persisted_quantity": 650,
+        "validation": "validated",
+        "reason_codes": [
+          "recommendation_differs_from_safe_quantity"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "execute_action",
+          "validate_outcome",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-03",
+      "case_code": "REC-REJECT",
+      "run_id": "f13161c4-a9c3-49d7-8b6b-7a98f96b0f75",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 64,
+      "expected": {
+        "decision": "reject",
+        "authorization": "not_required",
+        "status": "completed",
+        "quantity": null,
+        "validation": "not_required"
+      },
+      "observed": {
+        "initial_status": "completed",
+        "decision": "reject",
+        "authorization": "not_required",
+        "status": "completed",
+        "requested_quantity": null,
+        "persisted_quantity": null,
+        "validation": "not_required",
+        "reason_codes": [
+          "inventory_coverage_sufficient"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-04",
+      "case_code": "REC-INVESTIGATE",
+      "run_id": "248e0bbf-eeee-4a76-856b-c4c9ea7de18e",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 209,
+      "expected": {
+        "decision": "investigate",
+        "authorization": "blocked",
+        "status": "blocked",
+        "quantity": null,
+        "validation": "not_required"
+      },
+      "observed": {
+        "initial_status": "blocked",
+        "decision": "investigate",
+        "authorization": "blocked",
+        "status": "blocked",
+        "requested_quantity": null,
+        "persisted_quantity": null,
+        "validation": "not_required",
+        "reason_codes": [
+          "stale:get_demand_forecast"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-05",
+      "case_code": "SUPPLIER-SHORTFALL",
+      "run_id": "72ee4d6f-061e-493d-ab5f-b04c958cc329",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 79,
+      "expected": {
+        "decision": "investigate",
+        "authorization": "blocked",
+        "status": "blocked",
+        "quantity": null,
+        "validation": "not_required"
+      },
+      "observed": {
+        "initial_status": "blocked",
+        "decision": "investigate",
+        "authorization": "blocked",
+        "status": "blocked",
+        "requested_quantity": null,
+        "persisted_quantity": null,
+        "validation": "not_required",
+        "reason_codes": [
+          "calculated_order_blocked",
+          "supplier_availability_exceeded"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-06",
+      "case_code": "DEMAND-CHANGE",
+      "run_id": "3ca39f05-2023-45dc-9f63-5cc62ee0374c",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 87,
+      "expected": {
+        "decision": "modify",
+        "authorization": "auto_authorized",
+        "status": "completed",
+        "quantity": 750,
+        "validation": "validated"
+      },
+      "observed": {
+        "initial_status": "completed",
+        "decision": "modify",
+        "authorization": "auto_authorized",
+        "status": "completed",
+        "requested_quantity": 750,
+        "persisted_quantity": 750,
+        "validation": "validated",
+        "reason_codes": [
+          "recommendation_differs_from_safe_quantity"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "execute_action",
+          "validate_outcome",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-07",
+      "case_code": "HARD-CONSTRAINT",
+      "run_id": "55ccd534-ddaf-48b1-a08b-f30855724682",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 59,
+      "expected": {
+        "decision": "investigate",
+        "authorization": "blocked",
+        "status": "blocked",
+        "quantity": null,
+        "validation": "not_required"
+      },
+      "observed": {
+        "initial_status": "blocked",
+        "decision": "investigate",
+        "authorization": "blocked",
+        "status": "blocked",
+        "requested_quantity": null,
+        "persisted_quantity": null,
+        "validation": "not_required",
+        "reason_codes": [
+          "budget_exceeded",
+          "calculated_order_blocked"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-08",
+      "case_code": "REC-VALIDATE",
+      "run_id": "fe977c5f-5834-4d16-a8a5-c09439c21d4a",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 69,
+      "expected": {
+        "decision": "accept",
+        "authorization": "auto_authorized",
+        "status": "escalated",
+        "quantity": 650,
+        "validation": "failed"
+      },
+      "observed": {
+        "initial_status": "escalated",
+        "decision": "accept",
+        "authorization": "auto_authorized",
+        "status": "escalated",
+        "requested_quantity": 650,
+        "persisted_quantity": 600,
+        "validation": "failed",
+        "reason_codes": [
+          "recommendation_matches_safe_quantity"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "execute_action",
+          "validate_outcome",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    },
+    {
+      "evaluation_id": "E-09",
+      "case_code": "REC-REVIEW",
+      "run_id": "6634147f-07c8-4540-bae8-462c8c650fa8",
+      "mode": "replay",
+      "provider": null,
+      "model": null,
+      "passed": true,
+      "duration_ms": 117,
+      "expected": {
+        "decision": "accept",
+        "authorization": "human_approved",
+        "status": "completed",
+        "quantity": 800,
+        "validation": "validated"
+      },
+      "observed": {
+        "initial_status": "awaiting_review",
+        "decision": "accept",
+        "authorization": "human_approved",
+        "status": "completed",
+        "requested_quantity": 800,
+        "persisted_quantity": 800,
+        "validation": "validated",
+        "reason_codes": [
+          "recommendation_matches_safe_quantity"
+        ],
+        "steps": [
+          "plan_investigation",
+          "gather_evidence",
+          "assess_evidence",
+          "calculate_requirement",
+          "propose_decision",
+          "validate_plan",
+          "authorize_action",
+          "execute_action",
+          "validate_outcome",
+          "finalize"
+        ]
+      },
+      "graders": {
+        "evidence": true,
+        "decision": true,
+        "constraints": true,
+        "authorization": true,
+        "action": true,
+        "validation_and_recovery": true
+      },
+      "idempotency": null,
+      "hard_safety_failures": []
+    }
+  ]
+}

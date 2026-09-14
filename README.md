@@ -6,7 +6,7 @@ The original project brief is in [`AI Buyer Agent project.pdf`](./AI%20Buyer%20A
 
 ## Current status
 
-The product, architecture, and evaluation blueprints are finalized. The runnable React, FastAPI, and PostgreSQL foundation is implemented; purchasing behavior is the next capability.
+The purchasing backend is implemented and passes all nine deterministic end-to-end evaluations with zero hard-safety failures. The buyer workspace and reviewer Docker setup are in progress.
 
 ## Product
 
@@ -38,13 +38,13 @@ The LLM selects tools, investigates uncertainty, proposes a plan, explains it, a
 | Reviewer runtime | Docker Compose |
 | Evaluation | Deterministic Python graders |
 
-Model names are configuration rather than hardcoded product decisions. Live mode uses the selected provider; clearly labelled replay mode lets a reviewer inspect captured runs without an API key.
+Model names are configuration rather than hardcoded product decisions. Live mode uses the selected provider. Clearly labelled replay mode runs the same graph deterministically against seeded evidence without an API key and is not presented as live-model evaluation.
 
 ## Evaluation
 
 The evaluation suite measures the complete purchasing outcome: evidence gathered, decision correctness, constraint compliance, authorization, action, post-action validation, and recovery.
 
-It includes successful decisions, supplier shortfall, demand change, hard constraints, missing evidence, and an action that acknowledges success but persists incorrect state.
+It includes all four decisions, supplier shortfall, demand change, hard constraints, stale evidence, human approval, idempotent retry, and an action that acknowledges success but persists incorrect state. The latest report is in [`artifacts/evaluations/latest.md`](./artifacts/evaluations/latest.md).
 
 ## Local setup
 
@@ -67,6 +67,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m alembic upgrade head
+python -m app.seed
 python main.py
 ```
 
@@ -81,6 +82,26 @@ npm run dev
 
 The web app runs at `http://localhost:5173`, the API at `http://localhost:8000`, and API documentation at `http://localhost:8000/docs`. `GET /api/health` verifies the API and performs a real PostgreSQL query.
 
+Run the complete backend evaluation from `backend/`:
+
+```bash
+source .venv/bin/activate
+python -m app.evaluation
+```
+
+## Model configuration
+
+The default `.env.example` uses `AI_MODE=replay` and needs no key. For live mode, set:
+
+```text
+AI_MODE=live
+LLM_PROVIDER=gemini        # or openai / anthropic
+LLM_MODEL=<provider model available to you>
+GEMINI_API_KEY=<key>       # or the matching provider key
+```
+
+If exactly one provider key is present, `LLM_PROVIDER` may be omitted. The application refuses ambiguous or incomplete live configuration.
+
 ## Project map
 
 | File | Purpose |
@@ -91,9 +112,9 @@ The web app runs at `http://localhost:5173`, the API at `http://localhost:8000`,
 | [`docs/decisions.md`](./docs/decisions.md) | Consequential product and technical decisions with reasoning. |
 | [`AGENTS.md`](./AGENTS.md) | Working standards for contributors and coding agents. |
 | [`frontend/`](./frontend) | React interface, local API configuration, and frontend tooling. |
-| [`backend/`](./backend) | FastAPI application, database connection, dependencies, and migrations. |
+| [`backend/`](./backend) | FastAPI API, LangGraph workflow, policy engine, simulator, evaluation runner, seed data, and migrations. |
 
-Seeded data, evaluation usage, and demo instructions will be added with the capabilities that use them. No undocumented step should be required to run or understand the completed project.
+No undocumented step should be required to run or understand the implemented project.
 
 ## Security
 
