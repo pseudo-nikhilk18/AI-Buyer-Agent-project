@@ -75,6 +75,12 @@ plan investigation
 
 LangGraph owns transitions, a bounded evidence-gap loop, PostgreSQL checkpoints, pause/resume, and action-time replanning. Purchasing formulas remain ordinary Python functions.
 
+## Closed feedback loops
+
+The runtime loop closes on the actual purchasing result, not the model response or an API acknowledgement. A validated persisted order completes the run. Missing, stale, or changed evidence returns to bounded investigation without a write. A persisted quantity mismatch is escalated and cannot be retried as a new purchase under the same idempotency key. Buyer approval resumes the exact guarded action; rejection closes it without mutation.
+
+The engineering loop keeps failed live-model traces, classifies the responsible layer, adds a reproducible dataset case when the failure reveals a genuine gap, and reruns the focused live case before the broader live suite and deterministic safety regression. It does not perform unreviewed online model learning or silently convert observed failures into purchasing policy.
+
 ## Tool selection and SQL execution
 
 The configured LLM receives the approved tool catalog and returns a typed `InvestigationPlan` containing selected tool names, purposes, and questions. It never receives SQL access. `gather_evidence` accepts only registered names and dispatches them through `TOOL_REGISTRY`, where SQLAlchemy executes parameterized PostgreSQL queries for the current case.
@@ -127,7 +133,7 @@ There is one modular purchasing agent, not a collection of agents pretending tha
 - `GET /api/runs/{run_id}` — retrieve a run.
 - `POST /api/runs/{run_id}/review` — approve or reject a paused exact action.
 
-The API exposes the model's structured proposal, guard result, investigation plan, evidence, and outcome. It exposes no provider keys, prompts, database errors, reference answers, chain-of-thought, or other hidden reasoning.
+The API exposes the model's structured proposal, reason codes, guard result, investigation plan, executed-tool evidence, and outcome. The web interface presents this as request/result exchanges followed by the model's post-investigation response. It exposes no provider keys, prompts, database errors, reference answers, chain-of-thought, or other hidden reasoning.
 
 ## Evaluation boundary
 

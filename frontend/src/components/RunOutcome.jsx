@@ -165,6 +165,12 @@ export function RunOutcome({ busy, detail, onReview, run }) {
   const openOrders = evidencePayload(run, "get_open_purchase_orders", detail.open_purchase_orders);
   const budget = evidencePayload(run, "get_budget", detail.budget);
   const feedback = feedbackCopy(run);
+  const proposalLabel =
+    run?.error_code === "MODEL_UNAVAILABLE"
+      ? "AI response unavailable"
+      : run?.mode === "live"
+        ? "AI response after investigation"
+        : "Replay proposal";
 
   return (
     <ol className="result-flow" aria-label="Purchasing agent result">
@@ -231,7 +237,7 @@ export function RunOutcome({ busy, detail, onReview, run }) {
           </header>
           <div className="decision-comparison">
             <div>
-              <span>AI proposal</span>
+              <span>{proposalLabel}</span>
               <strong>
                 {raw
                   ? decisionTitle(run, raw)
@@ -244,6 +250,13 @@ export function RunOutcome({ busy, detail, onReview, run }) {
                       : "No usable proposal returned"}
               </strong>
               <p>{raw?.summary ?? decision?.summary}</p>
+              {raw?.reason_codes?.length ? (
+                <ul className="reason-list" aria-label="AI response reasons">
+                  {raw.reason_codes.map((reason) => (
+                    <li key={reason}>{formatLabel(reason)}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
             <div>
               <span>Independent safety check</span>

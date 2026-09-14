@@ -1,6 +1,6 @@
 # Latest System / Safety Regression
 
-- Generated: 2026-09-14T19:20:44.460701+00:00
+- Generated: 2026-09-14T19:58:49.693226+00:00
 - Mode: `replay`
 - Result: **13/13 checks passed**
 - Hard-safety failures: **0**

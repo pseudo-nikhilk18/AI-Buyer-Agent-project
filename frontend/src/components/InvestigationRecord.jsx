@@ -1,4 +1,4 @@
-import { formatLabel } from "../lib/format";
+import { evidenceSummary, formatLabel } from "../lib/format";
 
 function attemptsFor(run) {
   if (run?.investigation_history?.length) return run.investigation_history;
@@ -6,6 +6,44 @@ function attemptsFor(run) {
     return [{ attempt: 1, missing_sources_before: [], plan: run.investigation_plan }];
   }
   return [];
+}
+
+function ToolExchange({ record, request, requestedByAi, unavailable }) {
+  const result = record ? evidenceSummary(request.tool_name, record.payload) : null;
+  const status = record
+    ? record.is_fresh
+      ? "Current SQL data"
+      : "Stale SQL data"
+    : unavailable
+      ? "No data returned"
+      : "Not executed";
+
+  return (
+    <li className="tool-exchange">
+      <div className="tool-exchange__request">
+        <span>{requestedByAi ? "AI requested" : "Replay requested"}</span>
+        <div className="tool-exchange__name">
+          <strong>{formatLabel(request.tool_name)}</strong>
+          <code>{request.tool_name}</code>
+        </div>
+        <p>{request.purpose}</p>
+        <small>Question: {request.questions.join(" ")}</small>
+      </div>
+      <div className="tool-exchange__response" data-missing={!record}>
+        <div>
+          <span>Tool returned</span>
+          <small>{status}</small>
+        </div>
+        <strong>{result?.value ?? "No evidence available"}</strong>
+        <p>
+          {result?.detail ??
+            (unavailable
+              ? "The source query completed without the required record."
+              : "The workflow did not call this tool.")}
+        </p>
+      </div>
+    </li>
+  );
 }
 
 export function InvestigationRecord({ run }) {
@@ -32,26 +70,13 @@ export function InvestigationRecord({ run }) {
           </div>
           <ol className="source-list">
             {attempt.plan.tool_requests.map((request) => (
-              <li key={request.tool_name}>
-                <div className="source-list__heading">
-                  <strong>{formatLabel(request.tool_name)}</strong>
-                  {evidenceByTool.has(request.tool_name) ? (
-                    <span>
-                      {evidenceByTool.get(request.tool_name)?.is_fresh
-                        ? "SQL data retrieved"
-                        : "SQL data retrieved · stale"}
-                    </span>
-                  ) : unavailableTools.has(request.tool_name) ? (
-                    <span className="source-list__unavailable">
-                      SQL query ran · data unavailable
-                    </span>
-                  ) : (
-                    <span>Not retrieved</span>
-                  )}
-                </div>
-                <p>{request.purpose}</p>
-                <small>{request.questions.join(" · ")}</small>
-              </li>
+              <ToolExchange
+                key={request.tool_name}
+                record={evidenceByTool.get(request.tool_name)}
+                request={request}
+                requestedByAi={run?.mode === "live"}
+                unavailable={unavailableTools.has(request.tool_name)}
+              />
             ))}
           </ol>
         </div>

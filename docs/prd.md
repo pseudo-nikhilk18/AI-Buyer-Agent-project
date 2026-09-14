@@ -129,7 +129,7 @@ The system preserves the event, tool calls, evidence, policy results, decision, 
 
 ### FR-7 — Buyer workspace
 
-The interface opens with six plain-language agent tests. Running or viewing a test shows the purchasing situation, information investigated, agent decision, action taken, result validation, and the resulting feedback path in that order. The investigation must show that the AI selected approved tools and whether each SQL-backed tool returned data. Business language is primary; evidence records, purchasing-rule internals, inventory projection, and graph trace stay in optional technical details.
+The interface opens with six plain-language agent tests. Running or viewing a test shows the purchasing situation, information investigated, agent decision, action taken, result validation, and the resulting feedback path in that order. The investigation must show each structured AI tool request, why it was requested, the SQL-backed result returned, and the AI's structured response after investigation. Business language is primary; raw chain-of-thought is never requested or exposed, while evidence records, purchasing-rule internals, inventory projection, and graph trace stay in optional technical details.
 
 ### FR-8 — Provider configuration
 

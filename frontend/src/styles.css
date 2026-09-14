@@ -555,8 +555,6 @@ summary:focus-visible {
 
 .source-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
   margin: 1rem 0 0;
   padding: 0;
   border-top: 1px solid var(--line);
@@ -564,47 +562,77 @@ summary:focus-visible {
 }
 
 .source-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   min-width: 0;
-  padding: 0.85rem 0.85rem 0.85rem 0;
   border-bottom: 1px solid var(--soft-line);
 }
 
-.source-list li:nth-child(even) {
-  padding-right: 0;
-  padding-left: 0.85rem;
-  border-left: 1px solid var(--soft-line);
+.tool-exchange__request,
+.tool-exchange__response {
+  min-width: 0;
+  padding: 0.9rem;
 }
 
-.source-list strong {
-  font-size: 0.82rem;
+.tool-exchange__request > span,
+.tool-exchange__response > div > span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 720;
 }
 
-.source-list__heading {
+.tool-exchange__name,
+.tool-exchange__response > div {
   display: flex;
   gap: 0.6rem;
   align-items: center;
   justify-content: space-between;
 }
 
-.source-list__heading span {
-  color: var(--success);
-  font-size: 0.6rem;
-  font-weight: 730;
-  text-align: right;
+.tool-exchange__name {
+  align-items: baseline;
+  margin-top: 0.25rem;
 }
 
-.source-list__heading .source-list__unavailable {
+.tool-exchange__name strong,
+.tool-exchange__response > strong {
+  font-size: 0.84rem;
+}
+
+.tool-exchange__name code {
+  color: #546159;
+  font-size: 0.64rem;
+  overflow-wrap: anywhere;
+}
+
+.tool-exchange__response {
+  border-left: 1px solid var(--soft-line);
+  background: #eef3ef;
+}
+
+.tool-exchange__response > div > small {
+  color: var(--success);
+  font-size: 0.62rem;
+  font-weight: 720;
+}
+
+.tool-exchange__response[data-missing="true"] > div > small {
   color: var(--danger);
 }
 
-.source-list p {
+.tool-exchange__response > strong {
+  display: block;
+  margin-top: 0.35rem;
+}
+
+.tool-exchange p {
   margin: 0.25rem 0;
   color: #4c5952;
   font-size: 0.74rem;
   line-height: 1.4;
 }
 
-.source-list small {
+.tool-exchange__request > small {
   display: block;
   color: var(--muted);
   font-size: 0.66rem;
@@ -637,6 +665,25 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.5;
+}
+
+.reason-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reason-list li {
+  border: 1px solid #b8c7bf;
+  border-radius: 99px;
+  background: #e7efe9;
+  padding: 0.28rem 0.5rem;
+  color: #334a3e;
+  font-size: 0.62rem;
+  font-weight: 680;
 }
 
 .authority-line,
@@ -1121,16 +1168,12 @@ summary:focus-visible {
   .workflow-list {
     grid-template-columns: 1fr;
   }
-  .source-list li:nth-child(even) {
-    padding-left: 0;
+  .source-list li {
+    grid-template-columns: 1fr;
+  }
+  .tool-exchange__response {
+    border-top: 1px solid var(--soft-line);
     border-left: 0;
-  }
-  .source-list__heading {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .source-list__heading span {
-    text-align: left;
   }
   .feedback-loop > div {
     align-items: flex-start;

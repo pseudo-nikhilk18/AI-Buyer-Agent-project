@@ -62,6 +62,7 @@ A feature is done when its evaluation proves the intended decision, evidence gat
 - Keep domain logic separate from UI, LLM prompts, and data access so it is independently verifiable.
 - Frontend anti-slop: establish a product-specific visual direction before coding; use realistic purchasing content, intentional hierarchy, responsive behavior, accessible interactions, and screenshot-based critique. Avoid generic dashboard templates and decorative effects without purpose.
 - Open the product UI with simple plain-language agent tests. Present each result as purchasing situation, information investigated, agent decision, action taken, and result validation; keep technical codes and graph internals optional.
+- Show observable AI behavior as structured tool requests, concise tool results, and the post-investigation response. Never label replay output as AI behavior or expose chain-of-thought.
 - Backend anti-slop: define contracts and failure modes first; validate at runtime; use typed errors, idempotent writes, structured traces, and evaluation-driven engineering checks. No placeholder logic, fake success states, swallowed errors, or happy-path-only implementations.
 - Run the web app and API directly on macOS against local PostgreSQL during development. Maintain Docker Compose as the reviewer setup and validate it outside the routine local workflow.
 - Use a standard Python `.venv` and `requirements.txt` for backend dependencies. Discuss alternate package managers or additional lint and test tools before adding them.
