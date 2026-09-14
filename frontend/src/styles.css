@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Instrument Sans Variable", "Helvetica Neue", sans-serif;
+  --color-canvas: #e9eeeb;
+  --color-paper: #fbfcfa;
+  --color-ink: #18231e;
+  --color-forest: #24483c;
+  --color-muted: #65736c;
+  --color-rule: #c8d1cc;
+  --color-mist: #dce8e2;
+  --color-signal: #cf6b3c;
+  --color-success: #2d7a58;
+  --color-warning: #a94d2d;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    background: var(--color-canvas);
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .status-mark {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .status-mark__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: currentColor;
+  }
+
+  .status-mark--ready {
+    color: var(--color-success);
+  }
+
+  header .status-mark--ready {
+    color: #bde9d1;
+  }
+
+  .status-mark--checking {
+    color: var(--color-signal);
+  }
+
+  .status-mark--unavailable {
+    color: var(--color-warning);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

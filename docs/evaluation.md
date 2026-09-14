@@ -86,7 +86,7 @@ Live cases may be repeated through a configurable repetition count to expose mod
 
 ## Supporting engineering checks
 
-Focused automated checks will protect deterministic purchasing calculations, authorization, idempotency, transactions, migrations, and provider selection. A small Playwright set will verify the buyer-visible autonomous-success and human-review flows.
+Focused automated checks will protect deterministic purchasing calculations, authorization, idempotency, transactions, migrations, and provider selection. Buyer-visible autonomous-success and human-review flows will also be exercised before delivery.
 
 These checks support the evaluation harness; they are not presented as the main evidence of product intelligence.
 

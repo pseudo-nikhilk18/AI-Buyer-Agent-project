@@ -56,7 +56,9 @@ A feature is done when its evaluation proves the intended decision, evidence gat
 - Frontend anti-slop: establish a product-specific visual direction before coding; use realistic purchasing content, intentional hierarchy, responsive behavior, accessible interactions, and screenshot-based critique. Avoid generic dashboard templates and decorative effects without purpose.
 - Backend anti-slop: define contracts and failure modes first; validate at runtime; use typed errors, idempotent writes, structured traces, and evaluation-driven engineering checks. No placeholder logic, fake success states, swallowed errors, or happy-path-only implementations.
 - Run the web app and API directly on macOS against local PostgreSQL during development. Maintain Docker Compose as the reviewer setup and validate it outside the routine local workflow.
-- When available, use `frontend-design` for visual direction, `vercel-react-best-practices` while building React, `web-design-guidelines` for UI audits, `security-best-practices` for secure-by-default implementation, and `playwright` for browser validation.
+- Use a standard Python `.venv` and `requirements.txt` for backend dependencies. Discuss alternate package managers or additional lint and test tools before adding them.
+- Start Vite and FastAPI separately and configure the browser-facing API URL through `VITE_API_BASE_URL`. Add a development proxy only if an agreed requirement needs one.
+- When available, use `frontend-design` for visual direction, `vercel-react-best-practices` while building React, `web-design-guidelines` for UI audits, and `security-best-practices` for secure-by-default implementation.
 - Preserve Git history and existing user changes. Keep commits focused and independently understandable.
 - Use Conventional Commits: `<type>[optional scope]: <imperative description>`. Choose the type by intent: `feat` for capability, `fix` for a real defect, `docs` for documentation only, `test` for evaluations or tests, `refactor` for behavior-preserving structure, and `chore` for maintenance. Use a short, stable scope only when it adds clarity.
 

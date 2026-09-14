@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Finalized technical blueprint; implementation has not started.
+Status: Active; the runtime foundation is implemented and purchasing capabilities are next.
 
 Last updated: 2026-09-14
 
@@ -48,12 +48,11 @@ The LLM investigates and proposes. Deterministic services decide feasibility and
 | Persistence | PostgreSQL, SQLAlchemy, Alembic |
 | Graph checkpoints | PostgreSQL LangGraph checkpointer |
 | Evaluation | Python evaluation runner with deterministic graders |
-| Browser verification | Playwright for critical workflows |
 | Development runtime | Native Vite and FastAPI processes with local PostgreSQL |
 | Reviewer runtime | Docker Compose |
-| Continuous checks | GitHub Actions, Ruff, ESLint, Prettier |
+| Continuous checks | GitHub Actions, ESLint, Prettier |
 
-Exact dependency versions will be pinned during scaffolding. Model names are configuration, not architecture.
+Dependencies are pinned in `backend/requirements.txt` and `frontend/package-lock.json`. Model names are configuration, not architecture.
 
 ## Purchasing graph
 
@@ -150,6 +149,8 @@ Structured business fields remain relational. Evidence snapshots, provider metad
 ## Runtime environments
 
 During development, the Vite web process and FastAPI process run directly on macOS and connect to a local PostgreSQL service. This keeps feedback loops fast and makes each layer easy to inspect.
+
+Vite and FastAPI are started separately. The browser connects directly to FastAPI using `VITE_API_BASE_URL`; allowed local origins are explicit in API configuration.
 
 For reviewers, Docker Compose will run three services:
 

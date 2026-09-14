@@ -1,6 +1,6 @@
 # Product Requirements: AI Purchasing Agent
 
-Status: Finalized product blueprint; implementation has not started.
+Status: Finalized product requirements; implementation is underway.
 
 Source: original project brief in `AI Buyer Agent project.pdf`
 
@@ -26,6 +26,8 @@ One shared workflow handles four event types:
 4. **Constraint resolution:** find a safe course when budget, storage, supplier, quantity, or timing constraints block the obvious action.
 
 These situations reuse the same evidence, policies, authorization, action, and validation capabilities.
+
+Recommendation review receives the complete end-to-end implementation and deepest evaluation coverage. The other three situations remain real, runnable paths through the same workflow, implemented through focused cases that prove replanning and constraint handling without duplicating the primary workflow.
 
 ## 4. Operating workflow
 
