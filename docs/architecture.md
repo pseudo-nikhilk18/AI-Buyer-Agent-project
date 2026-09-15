@@ -30,6 +30,46 @@ flowchart LR
 
 The LLM investigates and proposes without seeing fixture labels. Deterministic code controls calculations, hard constraints, proposal validation, authority, database mutations, and success validation.
 
+## LangGraph topology
+
+```mermaid
+flowchart TD
+    Start([START]) --> Plan[plan_investigation<br/>LLM live / deterministic replay]
+    Plan --> Gather[gather_evidence<br/>dispatch approved SQL-backed tools]
+    Gather --> Assess[assess_evidence<br/>completeness and freshness]
+    Assess --> EvidenceRoute{route_after_evidence}
+
+    EvidenceRoute ==>|calculate: evidence complete| Calculate[calculate_requirement<br/>deterministic policy]
+    EvidenceRoute ==>|replan: missing and attempt remains| Plan
+    EvidenceRoute ==>|propose: stale or still incomplete| Propose[propose_decision<br/>safe investigate or LLM proposal]
+
+    Calculate --> Propose
+    Propose --> Guard[validate_plan<br/>deterministic safety guard]
+    Guard --> Authorize[authorize_action]
+
+    Authorize -.->|human_review: interrupt| Buyer[Buyer]
+    Buyer -.->|approve or reject: resume| Authorize
+    Authorize --> AuthorizationRoute{route_after_authorization}
+    AuthorizationRoute ==>|execute: auto or human approved| Execute[execute_action<br/>lock, recheck, idempotent write]
+    AuthorizationRoute ==>|finalize: blocked, rejected, or no action| Finalize[finalize<br/>completed / blocked / rejected / escalated]
+
+    Execute --> ExecutionRoute{route_after_execution}
+    ExecutionRoute ==>|gather_evidence: changed and retry remains| Gather
+    ExecutionRoute ==>|validate_outcome: action result available| Validate[validate_outcome<br/>read persisted PO]
+    ExecutionRoute ==>|finalize: replan limit reached| Finalize
+    Validate --> Finalize
+    Finalize --> End([END])
+
+    classDef router fill:#f4ecd7,stroke:#8a6b23,color:#29271f;
+    class EvidenceRoute,AuthorizationRoute,ExecutionRoute router;
+```
+
+- `-->` is a direct graph edge.
+- `==>` is a conditional edge selected by the named diamond-shaped routing function; its label begins with the exact route value returned by the code.
+- `-.->` is LangGraph interrupt/resume inside `authorize_action`; the saved state waits for the buyer and continues from the same exact proposal.
+
+The evidence loop permits at most two investigation attempts, and the action-time loop uses the configured replan limit; neither can run indefinitely.
+
 ## Technology
 
 | Area | Choice |
